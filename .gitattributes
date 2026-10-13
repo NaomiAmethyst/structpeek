@@ -1,0 +1,2 @@
+testdata/** -text
+internal/**/testdata/** -text

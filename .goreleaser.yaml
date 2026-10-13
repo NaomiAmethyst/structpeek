@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Naomi Persephone Amethyst <naomi@amethyst.name>
+#
+# Builds release binaries when a v* tag is pushed (.github/workflows/release.yml).
+# Try it locally with: goreleaser release --snapshot --clean
+version: 2
+project_name: structpeek
+
+builds:
+  - main: ./cmd/structpeek
+    binary: structpeek
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    goos: [linux, darwin, windows, freebsd]
+    goarch: [amd64, arm64, arm, riscv64]
+    goarm: ["7"]
+    ignore:
+      - goos: windows
+        goarch: arm
+      - goos: windows
+        goarch: riscv64
+      - goos: freebsd
+        goarch: riscv64
+
+archives:
+  - name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: github
+  sort: asc
+
+release:
+  prerelease: auto

@@ -1,9 +1,13 @@
 # structpeek
 
+[![CI](https://github.com/NaomiAmethyst/structpeek/actions/workflows/ci.yml/badge.svg)](https://github.com/NaomiAmethyst/structpeek/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/NaomiAmethyst/structpeek)](https://github.com/NaomiAmethyst/structpeek/releases/latest)
+[![License: GPL v3+](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](LICENSE)
+
 See what's in a data file without seeing what's in it.
 
-`structpeek` reads JSON, JSON Lines, YAML, TOML, INI, CSV, TSV or XML and writes a
-[JSON Schema](https://json-schema.org/) (2020-12) for its structure: the
+`structpeek` reads JSON, JSON Lines, YAML, TOML, INI, CSV, TSV or XML and
+writes a [JSON Schema](https://json-schema.org/) (2020-12) for its structure: the
 keys, types, formats, optional fields and kinds of record, but none of the
 values that could be sensitive. Use it to get to know a file, or give it to
 an AI agent instead of the file itself, so it can understand the data
@@ -103,7 +107,7 @@ The only things from the data that appear in a schema are:
 - **tag values** that tell kinds of object apart, under the same rules
   except that they must repeat within each kind;
 - the **power of ten** above and below each place's numbers (none at all
-  under a key that sounds secret).
+  under a key that sounds secret, or for numbers too big for a float).
 
 Anything that looks like a credential (private keys, JWTs, tokens with
 well-known prefixes, URLs with passwords in) or a random string is never an
@@ -113,9 +117,10 @@ enum value, tag or key.
 
 The format comes from the file name (`.json`, `.jsonl`, `.ndjson`, `.yaml`,
 `.yml`, `.toml`, `.ini`, `.cfg`, `.conf`, `.cnf`, `.properties`, `.csv`,
-`.tsv`, `.xml`, `.svg`, `.rss`, `.atom`, `.plist`, …), or `--format`;
-anything else is read as XML if it starts with `<`, or else as JSON, then
-YAML.
+`.tsv`, `.xml`, `.svg`, `.rss`, `.atom`, `.plist`, …), or `--format`.
+Anything else, including standard input, is sniffed: XML if it starts with
+`<`, else the first of JSON, TOML, YAML (if it's more than a lone value),
+INI, and CSV or TSV (if every row has as many fields) that reads it.
 
 Each is read as JSON would see it:
 
@@ -181,16 +186,59 @@ that were withheld; `$defs/highEntropyString` means keys, tokens, hashes or
 opaque IDs. Optional fields are the ones missing from `required`, and
 `anyOf` means several kinds of record are mixed together.
 
+## Limitations
+
+- Telling secrets from ordinary text is heuristic. About one random token
+  in a thousand passes for ordinary text: it's then typed as a plain
+  `string` rather than `$defs/highEntropyString`, but a blunter check still
+  keeps it out of enums and tags, so its value isn't written.
+- Values that are sensitive but ordinary-looking (people's names, cities)
+  can appear in an enum if they repeat often enough; `--max-enum 0` turns
+  enums off.
+- Keys are written as they are, unless an object looks like a map; a small
+  object keyed by, say, usernames may not.
+- Whether a CSV file has a header is a guess; a file that's all text and
+  has none may be taken to have one.
+- The whole file is read into memory; structpeek gets through about 8 MB a
+  second.
+
 ## Install
 
-You need Go 1.24 or later.
+**Binaries** for Linux, macOS, Windows and FreeBSD are on the
+[releases page](https://github.com/NaomiAmethyst/structpeek/releases/latest),
+with checksums. Unpack one and put `structpeek` on your `PATH`.
+
+**Docker** images for amd64, arm64, armv7, riscv64, ppc64le and s390x are
+on the GitHub Container Registry: `:latest` and version tags for releases,
+`:edge` for the main branch.
+
+```sh
+docker run --rm -i ghcr.io/naomiamethyst/structpeek < data.json
+docker run --rm -v "$PWD:/data:ro" ghcr.io/naomiamethyst/structpeek config.yaml
+```
+
+**From source**, with Go 1.24 or later:
 
 ```sh
 go install github.com/NaomiAmethyst/structpeek/cmd/structpeek@latest
 ```
 
 or, from a checkout, `make && sudo make install` (or `make install
-PREFIX=~/.local`). `make check` runs the tests.
+PREFIX=~/.local`).
+
+## Development
+
+`make check` runs the tests, `go vet` and a `gofmt` check; `make fuzz`
+fuzzes the decoders and the inference for a minute each. Schemas for the
+files in `testdata` are compared with the ones in `testdata/golden`; after
+a change that's meant to alter them, `go test ./cmd/structpeek -update`
+rewrites them, and the diff shows what changed. See
+[CONTRIBUTING.md](CONTRIBUTING.md), and if you find a value making it into
+a schema, [SECURITY.md](SECURITY.md).
+
+Releases are made by pushing a `v*` tag: GitHub Actions builds the binaries
+with [GoReleaser](https://goreleaser.com/) and the images with Docker
+Buildx.
 
 ## License
 

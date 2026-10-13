@@ -11,7 +11,7 @@ LDFLAGS := -s -w -X main.version=$(VERSION)
 
 SOURCES := $(shell find cmd internal -name '*.go') go.mod go.sum
 
-.PHONY: all test check install uninstall clean
+.PHONY: all test check fuzz install uninstall clean
 
 all: structpeek
 
@@ -25,6 +25,11 @@ check: test
 	$(GO) vet ./...
 	@test -z "$$(gofmt -l .)" || { gofmt -l .; echo 'run gofmt -w .'; exit 1; }
 
+FUZZTIME ?= 60s
+fuzz:
+	$(GO) test -run '^$$' -fuzz FuzzDecode -fuzztime $(FUZZTIME) ./internal/decode
+	$(GO) test -run '^$$' -fuzz FuzzInfer -fuzztime $(FUZZTIME) ./internal/infer
+
 install: structpeek
 	install -Dm755 structpeek $(DESTDIR)$(BINDIR)/structpeek
 
@@ -32,4 +37,4 @@ uninstall:
 	rm -f $(DESTDIR)$(BINDIR)/structpeek
 
 clean:
-	rm -f structpeek
+	rm -rf structpeek dist
