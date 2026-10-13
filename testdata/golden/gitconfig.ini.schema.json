@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "user": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "signingkey": {
+          "$ref": "#/$defs/highEntropyString"
+        }
+      },
+      "required": [
+        "name",
+        "email",
+        "signingkey"
+      ],
+      "additionalProperties": false
+    },
+    "core": {
+      "type": "object",
+      "properties": {
+        "editor": {
+          "type": "string"
+        },
+        "autocrlf": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "editor",
+        "autocrlf"
+      ],
+      "additionalProperties": false
+    },
+    "commit": {
+      "type": "object",
+      "properties": {
+        "gpgsign": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "gpgsign"
+      ],
+      "additionalProperties": false
+    },
+    "remote \"origin\"": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "fetch": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "fetch"
+      ],
+      "additionalProperties": false
+    },
+    "alias": {
+      "type": "object",
+      "properties": {
+        "st": {
+          "type": "string"
+        },
+        "lg": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "st",
+        "lg"
+      ],
+      "additionalProperties": false
+    },
+    "http": {
+      "type": "object",
+      "properties": {
+        "postBuffer": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000
+        }
+      },
+      "required": [
+        "postBuffer"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "user",
+    "core",
+    "commit",
+    "remote \"origin\"",
+    "alias",
+    "http"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "highEntropyString": {
+      "description": "A string that looks randomly generated, such as a key, token, hash or opaque ID. The values are withheld.",
+      "type": "string"
+    }
+  }
+}

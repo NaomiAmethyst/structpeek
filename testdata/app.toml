@@ -1,0 +1,27 @@
+# Service configuration
+name = "ledger"
+debug = false
+started = 2026-03-01T09:30:00Z
+
+[server]
+listen = "0.0.0.0"
+port = 8443
+timeouts = { read = 5.0, write = 10.0 }
+
+[database]
+url = "postgres://ledger:01360c8ffadabaa7@db.internal:5432/ledger"
+pool = 20
+
+[[upstreams]]
+name = "billing"
+url = "https://billing.internal/api"
+weight = 3
+
+[[upstreams]]
+name = "fx"
+url = "https://fx.internal/api"
+weight = 1
+retry = [ "exponential", 5 ]
+
+[secrets]
+signing_key = "bcc1ba30ec40387befd60a0b1ae7fc2bdf3c96414f29e5e3f776523d05ac878f"

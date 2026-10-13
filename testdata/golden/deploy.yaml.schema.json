@@ -1,0 +1,333 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "apiVersion": {
+        "type": "string"
+      },
+      "kind": {
+        "type": "string"
+      },
+      "metadata": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "labels": {
+            "type": "object",
+            "properties": {
+              "app": {
+                "type": "string"
+              },
+              "tier": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "app",
+              "tier"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "spec": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "replicas": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 10
+              },
+              "selector": {
+                "type": "object",
+                "properties": {
+                  "matchLabels": {
+                    "type": "object",
+                    "properties": {
+                      "app": {
+                        "type": "string"
+                      },
+                      "tier": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "app",
+                      "tier"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "matchLabels"
+                ],
+                "additionalProperties": false
+              },
+              "template": {
+                "type": "object",
+                "properties": {
+                  "metadata": {
+                    "type": "object",
+                    "properties": {
+                      "labels": {
+                        "type": "object",
+                        "properties": {
+                          "app": {
+                            "type": "string"
+                          },
+                          "tier": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "app",
+                          "tier"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "labels"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "spec": {
+                    "type": "object",
+                    "properties": {
+                      "containers": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "image": {
+                              "type": "string"
+                            },
+                            "ports": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "containerPort": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 10000
+                                  }
+                                },
+                                "required": [
+                                  "containerPort"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "env": {
+                              "type": "array",
+                              "items": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "name": {
+                                        "type": "string"
+                                      },
+                                      "value": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "name",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "name": {
+                                        "type": "string"
+                                      },
+                                      "valueFrom": {
+                                        "type": "object",
+                                        "properties": {
+                                          "secretKeyRef": {
+                                            "type": "object",
+                                            "properties": {
+                                              "name": {
+                                                "type": "string"
+                                              },
+                                              "key": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "name",
+                                              "key"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        },
+                                        "required": [
+                                          "secretKeyRef"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "required": [
+                                      "name",
+                                      "valueFrom"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            },
+                            "resources": {
+                              "type": "object",
+                              "properties": {
+                                "limits": {
+                                  "type": "object",
+                                  "properties": {
+                                    "cpu": {
+                                      "type": "string"
+                                    },
+                                    "memory": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "cpu",
+                                    "memory"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "required": [
+                                "limits"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "image",
+                            "ports",
+                            "env",
+                            "resources"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "containers"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "metadata",
+                  "spec"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "replicas",
+              "selector",
+              "template"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "selector": {
+                "type": "object",
+                "properties": {
+                  "app": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "app"
+                ],
+                "additionalProperties": false
+              },
+              "ports": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "port": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 100
+                    },
+                    "targetPort": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 10000
+                    }
+                  },
+                  "required": [
+                    "port",
+                    "targetPort"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "selector",
+              "ports"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "type": {
+        "type": "string"
+      },
+      "data": {
+        "type": "object",
+        "properties": {
+          "database-url": {
+            "$ref": "#/$defs/highEntropyString"
+          },
+          "session-key": {
+            "$ref": "#/$defs/highEntropyString"
+          }
+        },
+        "required": [
+          "database-url",
+          "session-key"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "apiVersion",
+      "kind",
+      "metadata"
+    ],
+    "additionalProperties": false
+  },
+  "$defs": {
+    "highEntropyString": {
+      "description": "A string that looks randomly generated, such as a key, token, hash or opaque ID. The values are withheld.",
+      "type": "string"
+    }
+  }
+}
