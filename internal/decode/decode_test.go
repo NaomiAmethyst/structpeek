@@ -192,6 +192,12 @@ func TestAuto(t *testing.T) {
 	check(t, Auto, Options{}, `{"a": 1}`, `{"a":1}`)
 	check(t, Auto, Options{}, "a: 1\n", `{"a":1}`)
 	check(t, Auto, Options{}, "\n <a>1</a>", `[{"a":{"$inner":1}}]`)
+	check(t, Auto, Options{}, "# c\nname = \"x\"\n[s]\nport = 1\n", `{"name":"x","s":{"port":1}}`)
+	check(t, Auto, Options{}, "[s]\nhost = example.com\nflag = on\n", `{"s":{"host":"example.com","flag":true}}`)
+	check(t, Auto, Options{}, "name,n\nx,1\n", `[{"name":"x","n":1}]`)
+	check(t, Auto, Options{}, "a\t1\nb\t2\n", `[["a",1],["b",2]]`)
+	check(t, Auto, Options{}, "just some text\n", `"just some text"`)
+	check(t, Auto, Options{}, "- a\n- b\n", `["a","b"]`)
 }
 
 func TestForPath(t *testing.T) {

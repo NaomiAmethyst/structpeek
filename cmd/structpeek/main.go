@@ -31,8 +31,7 @@ reads standard input. Several files are taken as examples of one kind of
 document, and the schema fits them all.
 
 Formats: json (and JSON Lines), yaml, toml, ini, csv, tsv, xml. Each
-file's format comes from its name, or, failing that, it's read as XML if
-it starts with "<", and as JSON or YAML if not.
+file's format comes from its name, or else from what it looks like.
 
 Options:
 `

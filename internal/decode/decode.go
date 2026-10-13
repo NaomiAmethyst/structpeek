@@ -8,6 +8,7 @@ package decode
 
 import (
 	"bytes"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -141,8 +142,8 @@ type Options struct {
 	CSVHeader Header
 }
 
-// Decode reads data in format f. With Auto it reads XML if data starts
-// with "<", and otherwise tries JSON, then YAML.
+// Decode reads data in format f, or, with Auto, whatever format it seems
+// to be in.
 func Decode(data []byte, f Format, o Options) (any, error) {
 	data = bytes.TrimPrefix(data, []byte("\xef\xbb\xbf"))
 	switch f {
@@ -161,19 +162,66 @@ func Decode(data []byte, f Format, o Options) (any, error) {
 	case XML:
 		return decodeXML(data)
 	case Auto:
-		if t := bytes.TrimLeft(data, " \t\r\n"); len(t) > 0 && t[0] == '<' {
-			return decodeXML(data)
-		}
-		if v, err := decodeJSON(data); err == nil {
-			return v, nil
-		}
-		v, err := decodeYAML(data)
-		if err != nil {
-			return nil, fmt.Errorf("neither JSON nor YAML (try --format): %w", err)
-		}
-		return v, nil
+		return decodeAuto(data, o)
 	}
 	return nil, fmt.Errorf("unknown format %q", f)
+}
+
+// decodeAuto works out the format by trying each in turn, most particular
+// first: XML (if it starts with "<"), JSON, TOML, YAML (if it gives more
+// than a lone value, as nearly any text is a YAML string), INI, CSV or
+// TSV (if every row has as many fields, and more than one), and at last
+// YAML after all.
+func decodeAuto(data []byte, o Options) (any, error) {
+	if t := bytes.TrimLeft(data, " \t\r\n"); len(t) > 0 && t[0] == '<' {
+		return decodeXML(data)
+	}
+	if v, err := decodeJSON(data); err == nil {
+		return v, nil
+	}
+	if v, err := decodeTOML(data); err == nil && len(v.(*Object).Keys) > 0 {
+		return v, nil
+	}
+	y, yerr := decodeYAML(data)
+	if yerr == nil {
+		switch y.(type) {
+		case *Object, []any:
+			return y, nil
+		}
+	}
+	if iniLike(data) {
+		if v, err := decodeINI(data); err == nil {
+			return v, nil
+		}
+	}
+	for _, comma := range []rune{'\t', ','} {
+		r := csv.NewReader(bytes.NewReader(data))
+		r.Comma = comma
+		if rows, err := r.ReadAll(); err == nil && len(rows) > 0 && len(rows[0]) > 1 {
+			return decodeCSV(data, comma, o.CSVHeader)
+		}
+	}
+	if yerr != nil {
+		return nil, fmt.Errorf("can't tell what format this is (try --format): %w", yerr)
+	}
+	return y, nil
+}
+
+// iniLike reports whether every line is blank, a comment, a [section] or a
+// key=value.
+func iniLike(data []byte) bool {
+	found := false
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		switch {
+		case line == "" || line[0] == ';' || line[0] == '#':
+		case line[0] == '[' && strings.HasSuffix(line, "]"), strings.Contains(line, "="):
+			found = true
+		default:
+			return false
+		}
+	}
+	return found
 }
 
 var jsonNumber = regexp.MustCompile(`^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?$`)
