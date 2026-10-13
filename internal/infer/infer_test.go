@@ -163,6 +163,19 @@ func TestKinds(t *testing.T) {
 	}
 }
 
+func TestOneOfKeys(t *testing.T) {
+	s := run(t, `[{"add": {"path": "a"}}, {"remove": "b"}, {"add": {"path": "c"}}]`)
+	want(t, at(t, s, "[]"), `{"type":"object","properties":{"add":{"type":"object","properties":`+
+		`{"path":{"type":"string"}},"required":["path"],"additionalProperties":false},`+
+		`"remove":{"type":"string"}},"minProperties":1,"maxProperties":1,"additionalProperties":false}`)
+
+	// Always the same key is just an object.
+	s = run(t, `[{"a": 1}, {"a": 2}]`)
+	if got := at(t, s, "[]").Required; !reflect.DeepEqual(got, []string{"a"}) {
+		t.Errorf("required = %v", got)
+	}
+}
+
 func TestStrings(t *testing.T) {
 	s := run(t, records(100, func(i int) string {
 		return fmt.Sprintf(`{"status": %q, "password": %q, "token": %q, "name": "user %d", `+

@@ -27,6 +27,8 @@ type Schema struct {
 	Maximum              json.Number `json:"maximum,omitempty"`
 	Properties           *Properties `json:"properties,omitempty"`
 	Required             []string    `json:"required,omitempty"`
+	MinProperties        *int        `json:"minProperties,omitempty"`
+	MaxProperties        *int        `json:"maxProperties,omitempty"`
 	PropertyNames        *Schema     `json:"propertyNames,omitempty"`
 	AdditionalProperties any         `json:"additionalProperties,omitempty"` // *Schema or false
 	PrefixItems          []*Schema   `json:"prefixItems,omitempty"`

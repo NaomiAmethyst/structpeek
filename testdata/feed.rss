@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A podcast feed -->
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Tea &amp; Types</title>
+    <link>https://example.com/podcast</link>
+    <description><![CDATA[A show about <em>type systems</em>, over tea.]]></description>
+    <atom:link href="https://example.com/feed.rss" rel="self" type="application/rss+xml"/>
+    <itunes:explicit>false</itunes:explicit>
+    <item>
+      <title>Episode 3: Variance</title>
+      <guid isPermaLink="false">a3f9c27e5b8d41f0a6e2c9b7d3f8a1e4</guid>
+      <pubDate>Mon, 05 Oct 2026 09:00:00 GMT</pubDate>
+      <enclosure url="https://cdn.example.com/ep3.mp3?sig=5f1d9a7c3e2b8f4a6d0c1e9b7a5f3d2c" length="48213376" type="audio/mpeg"/>
+      <itunes:duration>3012</itunes:duration>
+    </item>
+    <item>
+      <title>Episode 2: Generics</title>
+      <guid isPermaLink="false">0b7e4d9a2c6f8e1b3a5d7c9e0f2a4b6c</guid>
+      <pubDate>Mon, 28 Sep 2026 09:00:00 GMT</pubDate>
+      <enclosure url="https://cdn.example.com/ep2.mp3?sig=9c2e4a6b8d0f1e3c5a7b9d1f3e5c7a9b" length="51200000" type="audio/mpeg"/>
+      <itunes:duration>3301</itunes:duration>
+      <itunes:episodeType>bonus</itunes:episodeType>
+    </item>
+    <item>
+      <title>Episode 1: <i>Hello</i>, world</title>
+      <guid isPermaLink="false">7d1e3f5a9b2c4d6e8f0a1b3c5d7e9f2a</guid>
+      <pubDate>Mon, 21 Sep 2026 09:00:00 GMT</pubDate>
+      <enclosure url="https://cdn.example.com/ep1.mp3?sig=1a3c5e7b9d2f4a6c8e0b1d3f5a7c9e2b" length="40000000" type="audio/mpeg"/>
+      <itunes:duration>2710</itunes:duration>
+    </item>
+  </channel>
+</rss>

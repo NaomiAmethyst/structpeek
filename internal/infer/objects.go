@@ -18,6 +18,9 @@ func (in *inferrer) objects(objs []*decode.Object, p place) []*Schema {
 	if in.isMap(objs) {
 		return []*Schema{in.mapSchema(objs, p)}
 	}
+	if oneKeyEach(objs) {
+		return []*Schema{in.oneOfKeys(objs, p)}
+	}
 	kinds := in.cluster(objs)
 	if len(kinds) > maxKinds {
 		kinds = [][]*decode.Object{objs}
@@ -62,6 +65,32 @@ func (in *inferrer) object(objs []*decode.Object, p place) *Schema {
 		}
 	}
 	s.AdditionalProperties = false
+	return s
+}
+
+// oneKeyEach reports whether every object has exactly one key, and not
+// all the same one: a choice of one of several keys, like a list of XML
+// elements or a union tagged by its key.
+func oneKeyEach(objs []*decode.Object) bool {
+	for _, o := range objs {
+		if len(o.Keys) != 1 {
+			return false
+		}
+	}
+	for _, o := range objs[1:] {
+		if o.Keys[0] != objs[0].Keys[0] {
+			return true
+		}
+	}
+	return false
+}
+
+// oneOfKeys infers one schema for objects that each have one of several
+// keys: all of the keys are allowed, and exactly one is required.
+func (in *inferrer) oneOfKeys(objs []*decode.Object, p place) *Schema {
+	s := in.object(objs, p)
+	one := 1
+	s.Required, s.MinProperties, s.MaxProperties = nil, &one, &one
 	return s
 }
 

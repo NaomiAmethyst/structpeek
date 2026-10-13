@@ -2,7 +2,7 @@
 
 See what's in a data file without seeing what's in it.
 
-`structpeek` reads JSON, JSON Lines, YAML, TOML, INI, CSV or TSV and writes a
+`structpeek` reads JSON, JSON Lines, YAML, TOML, INI, CSV, TSV or XML and writes a
 [JSON Schema](https://json-schema.org/) (2020-12) for its structure: the
 keys, types, formats, optional fields and kinds of record, but none of the
 values that could be sensitive. Use it to get to know a file, or give it to
@@ -56,6 +56,11 @@ different types get each type. Objects too different to merge stay separate
 kinds in an `anyOf`, and if a field such as `type` tells them apart, each
 kind gets its value as a `const`.
 
+Objects that each have exactly one key, but not all the same one (a list
+of XML elements, or a union tagged by its key, like `{"add": …}` and
+`{"remove": …}`), are one schema allowing any of the keys, with
+`minProperties` and `maxProperties` of 1.
+
 Objects whose keys are data rather than field names (IDs, numbers, dates,
 addresses, tokens, a dictionary of like records, or simply too many keys)
 are **maps**: their values are pooled into one schema under
@@ -108,7 +113,9 @@ enum value, tag or key.
 
 The format comes from the file name (`.json`, `.jsonl`, `.ndjson`, `.yaml`,
 `.yml`, `.toml`, `.ini`, `.cfg`, `.conf`, `.cnf`, `.properties`, `.csv`,
-`.tsv`), or `--format`; anything else is read as JSON, then YAML.
+`.tsv`, `.xml`, `.svg`, `.rss`, `.atom`, `.plist`, …), or `--format`;
+anything else is read as XML if it starts with `<`, or else as JSON, then
+YAML.
 
 Each is read as JSON would see it:
 
@@ -124,6 +131,25 @@ Each is read as JSON would see it:
   column; without one, an array of arrays. Empty cells are null, and cells
   become booleans, numbers or strings. Whether there's a header is guessed;
   `--csv-header yes` or `no` says.
+- **XML**: an array of the root elements. Each element is an object with
+  one key, its name (with any namespace prefix, as written), holding an
+  object of its attributes, and its content under `$inner`: the text if
+  that's all there is, or else an array of its child elements and any text
+  between them. Text and attribute values become booleans, numbers or
+  strings. Comments, processing instructions and whitespace between
+  elements are dropped, and documents in other encodings are converted.
+
+  ```xml
+  <foos a="1"><foo><a>1</a><b>2</b></foo></foos>
+  ```
+
+  reads as
+
+  ```json
+  [{"foos": {"a": 1, "$inner": [
+    {"foo": {"$inner": [{"a": {"$inner": 1}}, {"b": {"$inner": 2}}]}}
+  ]}}]
+  ```
 
 ## Usage
 
@@ -137,7 +163,7 @@ examples of one kind of document, and the schema fits them all:
 
 | Option | |
 |---|---|
-| `-f`, `--format` *format* | read input as `json`, `yaml`, `toml`, `ini`, `csv` or `tsv` |
+| `-f`, `--format` *format* | read input as `json`, `yaml`, `toml`, `ini`, `csv`, `tsv` or `xml` |
 | `--csv-header` *auto\|yes\|no* | whether CSV/TSV files have a header row |
 | `-o`, `--output` *file* | write the schema to a file |
 | `-c`, `--compact` | write the schema on one line |

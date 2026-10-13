@@ -1,0 +1,289 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "rss": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10
+          },
+          "xmlns:itunes": {
+            "type": "string",
+            "format": "uri"
+          },
+          "xmlns:atom": {
+            "type": "string",
+            "format": "uri"
+          },
+          "$inner": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "channel": {
+                  "type": "object",
+                  "properties": {
+                    "$inner": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "title": {
+                            "type": "object",
+                            "properties": {
+                              "$inner": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "$inner"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "link": {
+                            "type": "object",
+                            "properties": {
+                              "$inner": {
+                                "type": "string",
+                                "format": "uri"
+                              }
+                            },
+                            "required": [
+                              "$inner"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": {
+                            "type": "object",
+                            "properties": {
+                              "$inner": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "$inner"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "atom:link": {
+                            "type": "object",
+                            "properties": {
+                              "href": {
+                                "type": "string",
+                                "format": "uri"
+                              },
+                              "rel": {
+                                "type": "string"
+                              },
+                              "type": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "href",
+                              "rel",
+                              "type"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "itunes:explicit": {
+                            "type": "object",
+                            "properties": {
+                              "$inner": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "$inner"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "item": {
+                            "type": "object",
+                            "properties": {
+                              "$inner": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "title": {
+                                      "type": "object",
+                                      "properties": {
+                                        "$inner": {
+                                          "type": [
+                                            "array",
+                                            "string"
+                                          ],
+                                          "prefixItems": [
+                                            {
+                                              "type": "string"
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "i": {
+                                                  "type": "object",
+                                                  "properties": {
+                                                    "$inner": {
+                                                      "type": "string"
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "$inner"
+                                                  ],
+                                                  "additionalProperties": false
+                                                }
+                                              },
+                                              "required": [
+                                                "i"
+                                              ],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "string"
+                                            }
+                                          ],
+                                          "items": false,
+                                          "minItems": 3
+                                        }
+                                      },
+                                      "required": [
+                                        "$inner"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "guid": {
+                                      "type": "object",
+                                      "properties": {
+                                        "isPermaLink": {
+                                          "type": "boolean"
+                                        },
+                                        "$inner": {
+                                          "$ref": "#/$defs/highEntropyString"
+                                        }
+                                      },
+                                      "required": [
+                                        "isPermaLink",
+                                        "$inner"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "pubDate": {
+                                      "type": "object",
+                                      "properties": {
+                                        "$inner": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "$inner"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "enclosure": {
+                                      "type": "object",
+                                      "properties": {
+                                        "url": {
+                                          "type": "string",
+                                          "format": "uri"
+                                        },
+                                        "length": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "maximum": 100000000
+                                        },
+                                        "type": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "url",
+                                        "length",
+                                        "type"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "itunes:duration": {
+                                      "type": "object",
+                                      "properties": {
+                                        "$inner": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "maximum": 10000
+                                        }
+                                      },
+                                      "required": [
+                                        "$inner"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "itunes:episodeType": {
+                                      "type": "object",
+                                      "properties": {
+                                        "$inner": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "$inner"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "minProperties": 1,
+                                  "maxProperties": 1,
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "$inner"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "minProperties": 1,
+                        "maxProperties": 1,
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "$inner"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "channel"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "version",
+          "xmlns:itunes",
+          "xmlns:atom",
+          "$inner"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "rss"
+    ],
+    "additionalProperties": false
+  },
+  "$defs": {
+    "highEntropyString": {
+      "description": "A string that looks randomly generated, such as a key, token, hash or opaque ID. The values are withheld.",
+      "type": "string"
+    }
+  }
+}

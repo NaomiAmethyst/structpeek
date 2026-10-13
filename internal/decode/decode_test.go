@@ -149,15 +149,55 @@ func TestCSV(t *testing.T) {
 	check(t, CSV, Options{CSVHeader: HeaderYes}, "", `[]`)
 }
 
+func TestXML(t *testing.T) {
+	check(t, XML, Options{}, `<foos a="1" b="2" c="3">
+  <foo>
+    <a>1</a>
+    <b>2</b>
+    <c>3</c>
+  </foo>
+  <foo>
+    <a>4</a>
+    <b>5</b>
+    <c>6</c>
+  </foo>
+</foos>`, `[{"foos":{"a":1,"b":2,"c":3,"$inner":[`+
+		`{"foo":{"$inner":[{"a":{"$inner":1}},{"b":{"$inner":2}},{"c":{"$inner":3}}]}},`+
+		`{"foo":{"$inner":[{"a":{"$inner":4}},{"b":{"$inner":5}},{"c":{"$inner":6}}]}}]}}]`)
+
+	check(t, XML, Options{}, `<?xml version="1.0"?>
+<!DOCTYPE doc>
+<x:doc xmlns:x="urn:x" on="yes"><!-- hi -->
+  <p>Hello <b>world</b>!</p>
+  <q>one <!-- split --> line &amp; <![CDATA[<raw>]]></q>
+  <br/>
+  <empty>   </empty>
+  <x:one><only/></x:one>
+</x:doc>`, `[{"x:doc":{"xmlns:x":"urn:x","on":true,"$inner":[`+
+		`{"p":{"$inner":["Hello",{"b":{"$inner":"world"}},"!"]}},`+
+		`{"q":{"$inner":"one  line \u0026 \u003craw\u003e"}},{"br":{}},{"empty":{}},`+
+		`{"x:one":{"$inner":[{"only":{}}]}}]}}]`)
+
+	latin1 := append([]byte(`<?xml version="1.0" encoding="ISO-8859-1"?><n>caf`), 0xe9, '<', '/', 'n', '>')
+	check(t, XML, Options{}, string(latin1), `[{"n":{"$inner":"café"}}]`)
+
+	for _, bad := range []string{``, `<a>`, `<a></b>`, `<a></a></a>`, `just text`} {
+		if _, err := Decode([]byte(bad), XML, Options{}); err == nil {
+			t.Errorf("Decode(%q) succeeded", bad)
+		}
+	}
+}
+
 func TestAuto(t *testing.T) {
 	check(t, Auto, Options{}, `{"a": 1}`, `{"a":1}`)
 	check(t, Auto, Options{}, "a: 1\n", `{"a":1}`)
+	check(t, Auto, Options{}, "\n <a>1</a>", `[{"a":{"$inner":1}}]`)
 }
 
 func TestForPath(t *testing.T) {
 	for name, want := range map[string]Format{
 		"a.json": JSON, "a.JSONL": JSON, "b.yml": YAML, "c.toml": TOML,
-		"d.conf": INI, "e.csv": CSV, "f.tsv": TSV, "g": Auto, "h.txt": Auto,
+		"d.conf": INI, "e.csv": CSV, "f.tsv": TSV, "i.svg": XML, "j.XML": XML, "g": Auto, "h.txt": Auto,
 	} {
 		if got := ForPath(name); got != want {
 			t.Errorf("ForPath(%q) = %q, want %q", name, got, want)

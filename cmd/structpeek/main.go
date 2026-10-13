@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Naomi Persephone Amethyst <naomi@amethyst.name>
 
-// Command structpeek reads a data file (JSON, YAML, TOML, INI or CSV) and
+// Command structpeek reads a data file (JSON, YAML, TOML, INI, CSV or XML) and
 // writes a JSON Schema describing its structure, without any of the values
 // that could be sensitive, so you (or an AI agent) can see what's in a
 // file without seeing what's in it.
@@ -30,8 +30,9 @@ structure, without values that could be sensitive. With no file, or "-",
 reads standard input. Several files are taken as examples of one kind of
 document, and the schema fits them all.
 
-Formats: json (and JSON Lines), yaml, toml, ini, csv, tsv. Each file's
-format comes from its name, or, failing that, it's read as JSON or YAML.
+Formats: json (and JSON Lines), yaml, toml, ini, csv, tsv, xml. Each
+file's format comes from its name, or, failing that, it's read as XML if
+it starts with "<", and as JSON or YAML if not.
 
 Options:
 `

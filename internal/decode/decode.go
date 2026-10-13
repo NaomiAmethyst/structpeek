@@ -86,15 +86,16 @@ const (
 	INI  Format = "ini"
 	CSV  Format = "csv"
 	TSV  Format = "tsv"
+	XML  Format = "xml"
 )
 
 // Formats lists the formats a user can ask for by name.
-var Formats = []Format{JSON, YAML, TOML, INI, CSV, TSV}
+var Formats = []Format{JSON, YAML, TOML, INI, CSV, TSV, XML}
 
 // ParseFormat turns a name, as given on the command line, into a Format.
 func ParseFormat(s string) (Format, error) {
 	switch f := Format(strings.ToLower(s)); f {
-	case Auto, JSON, YAML, TOML, INI, CSV, TSV:
+	case Auto, JSON, YAML, TOML, INI, CSV, TSV, XML:
 		return f, nil
 	case "yml":
 		return YAML, nil
@@ -119,6 +120,8 @@ func ForPath(name string) Format {
 		return CSV
 	case ".tsv", ".tab":
 		return TSV
+	case ".xml", ".xsd", ".xsl", ".xslt", ".svg", ".rss", ".atom", ".plist", ".xhtml":
+		return XML
 	}
 	return Auto
 }
@@ -138,7 +141,8 @@ type Options struct {
 	CSVHeader Header
 }
 
-// Decode reads data in format f. With Auto it tries JSON, then YAML.
+// Decode reads data in format f. With Auto it reads XML if data starts
+// with "<", and otherwise tries JSON, then YAML.
 func Decode(data []byte, f Format, o Options) (any, error) {
 	data = bytes.TrimPrefix(data, []byte("\xef\xbb\xbf"))
 	switch f {
@@ -154,7 +158,12 @@ func Decode(data []byte, f Format, o Options) (any, error) {
 		return decodeCSV(data, ',', o.CSVHeader)
 	case TSV:
 		return decodeCSV(data, '\t', o.CSVHeader)
+	case XML:
+		return decodeXML(data)
 	case Auto:
+		if t := bytes.TrimLeft(data, " \t\r\n"); len(t) > 0 && t[0] == '<' {
+			return decodeXML(data)
+		}
 		if v, err := decodeJSON(data); err == nil {
 			return v, nil
 		}
