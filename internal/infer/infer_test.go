@@ -210,7 +210,7 @@ func TestNumbers(t *testing.T) {
 	want(t, at(t, s, "b", "[]"), `{"type":"number","minimum":-10,"maximum":1}`)
 	want(t, at(t, s, "c", "[]"), `{"type":"integer","minimum":-1000,"maximum":0}`)
 	want(t, at(t, s, "d", "[]"), `{"type":"number","minimum":0,"maximum":0.1}`)
-	want(t, at(t, s, "e", "[]"), `{"type":"number","minimum":0,"maximum":1e+300}`)
+	want(t, at(t, s, "e", "[]"), `{"type":"number","minimum":0,"maximum":1e300}`)
 	want(t, at(t, s, "pin", "[]"), `{"type":"integer"}`)
 	want(t, at(t, s, "f", "[]"), `{"type":"number","minimum":0,"maximum":10}`)
 }
@@ -324,18 +324,50 @@ func TestNoSecrets(t *testing.T) {
 	}
 }
 
-func TestRoundOut(t *testing.T) {
+func TestMagnitude(t *testing.T) {
 	for _, c := range []struct {
-		x     float64
-		upper bool
-		want  json.Number
+		lit       string
+		e         int
+		neg, zero bool
 	}{
-		{5, false, "0"}, {5, true, "10"}, {10, true, "10"}, {11, true, "100"},
-		{0, true, "0"}, {-5, true, "0"}, {-5, false, "-10"}, {0.5, true, "1"},
-		{0.05, true, "0.1"}, {1, true, "1"}, {1e-9, true, "1e-09"}, {65535, true, "100000"},
+		{"5", 1, false, false}, {"10", 1, false, false}, {"11", 2, false, false},
+		{"1", 0, false, false}, {"0.5", 0, false, false}, {"0.05", -1, false, false},
+		{"0.1", -1, false, false}, {"-5", 1, true, false}, {"0", 0, false, true},
+		{"-0.0", 0, true, true}, {"65535", 5, false, false}, {"1e-9", -9, false, false},
+		{"100000000000000001", 18, false, false}, {"1E+3", 3, false, false},
+		{"12.5e-3", -1, false, false}, {"007", 1, false, false}, {"1e700", 700, false, false},
 	} {
-		if got := roundOut(c.x, c.upper); got != c.want {
-			t.Errorf("roundOut(%v, %v) = %v, want %v", c.x, c.upper, got, c.want)
+		e, neg, zero, ok := magnitude(c.lit)
+		if !ok || zero != c.zero || !zero && (e != c.e || neg != c.neg) {
+			t.Errorf("magnitude(%q) = %d, %v, %v, %v; want %d, %v, %v", c.lit, e, neg, zero, ok, c.e, c.neg, c.zero)
+		}
+	}
+	for _, bad := range []string{"NaN", "+Inf", "-Inf", "1e99999", "", "-", "1.2.3"} {
+		if _, _, _, ok := magnitude(bad); ok {
+			t.Errorf("magnitude(%q) ok", bad)
+		}
+	}
+	for e, want := range map[int]string{0: "1", 3: "1000", -1: "0.1", -6: "0.000001", -7: "1e-7", 21: "1e21"} {
+		if got := pow10(e, false); string(got) != want {
+			t.Errorf("pow10(%d) = %s, want %s", e, got, want)
+		}
+	}
+}
+
+func TestFormat(t *testing.T) {
+	for s, want := range map[string]string{
+		"2024-02-29": "date", "2023-02-29": "", "07:32:00Z": "time", "23:59:59.5+01:00": "time",
+		"24:00:00Z": "", "07:32:00": "", "2024-01-02T03:04:05Z": "date-time",
+		"2024-01-02t03:04:05.123-08:00": "date-time", "2024-01-02T25:04:05Z": "",
+		"a.b+c@example.co.uk": "email", ".a@example.com": "", "a..b@example.com": "",
+		strings.Repeat("a", 65) + "@example.com": "", "a@-x.com": "", "a@x.c": "",
+		"https://example.com/a?b=c#d": "uri", "http://[::1]:80/": "uri", "http://::1/": "",
+		"https://example.com/a b": "", "https://example.com/é": "", "https://x/%zz": "",
+		"10.0.0.1": "ipv4", "010.0.0.1": "", "::1": "ipv6", "fe80::1%eth0": "",
+		"0b7c3a52-9a51-4a3f-8b44-3f0f2b8c1d11": "uuid", "hello": "",
+	} {
+		if got := format(s); got != want {
+			t.Errorf("format(%q) = %q, want %q", s, got, want)
 		}
 	}
 }

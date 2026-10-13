@@ -8,6 +8,7 @@ import (
 	"net/netip"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -16,31 +17,35 @@ import (
 // What structpeek can tell about a string by looking at it.
 
 var (
-	uuidRE  = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
-	dateRE  = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
-	timeRE  = regexp.MustCompile(`^\d{2}:\d{2}:\d{2}(\.\d+)?([zZ]|[+-]\d{2}:\d{2})$`)
-	emailRE = regexp.MustCompile(`^[A-Za-z0-9.!#$%&'*+=?^_{|}~-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$`)
-	intRE   = regexp.MustCompile(`^-?[0-9]+$`)
+	uuidRE = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+	dateRE = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
+	timeRE = regexp.MustCompile(`^(\d{2}):(\d{2}):(\d{2})(\.\d+)?([zZ]|[+-](\d{2}):(\d{2}))$`)
+	// A dot-atom local part, and a domain of letters, digits and hyphens.
+	emailRE = regexp.MustCompile(`^[A-Za-z0-9!#$%&'*+/=?^_{|}~-]+(\.[A-Za-z0-9!#$%&'*+/=?^_{|}~-]+)*` +
+		`@([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$`)
+	// Only the characters RFC 3986 allows in a URI, with escapes well formed.
+	uriRE = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.-]*://([A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=]|%[0-9A-Fa-f]{2})+$`)
+	intRE = regexp.MustCompile(`^-?[0-9]+$`)
 )
 
 // format returns the JSON Schema format s is written in, if it's one
-// structpeek recognises, or "".
+// structpeek recognises, or "". Each check is stricter than the format's
+// standard, so whatever validator reads the schema, the data passes.
 func format(s string) string {
 	switch {
 	case uuidRE.MatchString(s):
 		return "uuid"
-	case dateRE.MatchString(s):
-		if _, err := time.Parse(time.DateOnly, s); err == nil {
-			return "date"
-		}
-	case timeRE.MatchString(s):
+	case validDate(s):
+		return "date"
+	case validTime(s):
 		return "time"
-	case emailRE.MatchString(s):
+	case len(s) >= 20 && (s[10] == 'T' || s[10] == 't') && validDate(s[:10]) && validTime(s[11:]):
+		return "date-time"
+	case validEmail(s):
 		return "email"
-	}
-	if len(s) >= 20 && s[4] == '-' {
-		if _, err := time.Parse(time.RFC3339Nano, s); err == nil && strings.ContainsAny(s[10:11], "Tt") {
-			return "date-time"
+	case uriRE.MatchString(s):
+		if u, err := url.Parse(s); err == nil && u.IsAbs() && validURIHost(u) {
+			return "uri"
 		}
 	}
 	if a, err := netip.ParseAddr(s); err == nil && a.Zone() == "" {
@@ -49,12 +54,43 @@ func format(s string) string {
 		}
 		return "ipv6"
 	}
-	if strings.Contains(s, "://") && !strings.ContainsFunc(s, unicode.IsSpace) {
-		if u, err := url.Parse(s); err == nil && u.Scheme != "" {
-			return "uri"
-		}
-	}
 	return ""
+}
+
+// validURIHost checks that an IPv6 host is in brackets, and valid.
+func validURIHost(u *url.URL) bool {
+	h := u.Hostname()
+	if !strings.Contains(h, ":") {
+		return true
+	}
+	a, err := netip.ParseAddr(h)
+	return strings.HasPrefix(u.Host, "[") && err == nil && a.Is6() && a.Zone() == ""
+}
+
+func validDate(s string) bool {
+	if !dateRE.MatchString(s) {
+		return false
+	}
+	_, err := time.Parse(time.DateOnly, s)
+	return err == nil
+}
+
+// validTime checks an RFC 3339 full-time, without leap seconds.
+func validTime(s string) bool {
+	m := timeRE.FindStringSubmatch(s)
+	if m == nil {
+		return false
+	}
+	in := func(i, limit int) bool {
+		n, _ := strconv.Atoi(m[i])
+		return m[i] == "" || n <= limit
+	}
+	return in(1, 23) && in(2, 59) && in(3, 59) && in(6, 23) && in(7, 59)
+}
+
+func validEmail(s string) bool {
+	local, domain, _ := strings.Cut(s, "@")
+	return len(s) <= 254 && len(local) <= 64 && len(domain) <= 253 && emailRE.MatchString(s)
 }
 
 // commonFormat returns the format every value shares, or "".

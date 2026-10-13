@@ -33,7 +33,6 @@ package infer
 
 import (
 	"encoding/json"
-	"math"
 	"slices"
 	"sort"
 	"strconv"
@@ -309,43 +308,93 @@ func (in *inferrer) enumSafe(vals []string, p place) bool {
 
 func (in *inferrer) numbers(vals []json.Number, p place) *Schema {
 	s := &Schema{Type: "integer"}
-	lo, hi := math.Inf(1), math.Inf(-1)
+	ranged := !p.sensitive
+	var pos, neg bool      // whether any are above or below zero
+	var posExp, negExp int // the most powers of ten they need, either side
 	for _, v := range vals {
 		if strings.ContainsAny(string(v), ".eEnN") {
 			s.Type = "number" // written as a float, NaN or infinity
 		}
-		f, err := strconv.ParseFloat(string(v), 64)
-		if err != nil || math.IsInf(f, 0) || math.IsNaN(f) {
-			continue
+		e, negative, zero, ok := magnitude(string(v))
+		switch {
+		case !ok:
+			ranged = false
+		case zero:
+		case negative:
+			if !neg || e > negExp {
+				negExp, neg = e, true
+			}
+		default:
+			if !pos || e > posExp {
+				posExp, pos = e, true
+			}
 		}
-		lo, hi = math.Min(lo, f), math.Max(hi, f)
 	}
-	if !p.sensitive && lo <= hi {
-		s.Minimum, s.Maximum = roundOut(lo, false), roundOut(hi, true)
+	if ranged {
+		s.Minimum, s.Maximum = "0", "0"
+		if neg {
+			s.Minimum = pow10(negExp, true)
+		}
+		if pos {
+			s.Maximum = pow10(posExp, false)
+		}
 	}
 	return s
 }
 
-// roundOut widens a bound away from zero to a power of ten (or zero), so
-// a range shows the scale of the numbers without giving any away, and
-// fits numbers a little past the ones seen.
-func roundOut(x float64, upper bool) json.Number {
-	if upper && x <= 0 || !upper && x >= 0 {
-		return "0"
+// magnitude reads a number as written and returns e for the smallest
+// power of ten, 10^e, at least as far from zero, along with whether it's
+// negative or zero. Ranges are rounded out to powers of ten, so they show
+// the scale of the numbers without giving any away, and fit numbers a
+// little past the ones seen. Working from the digits rather than a float
+// keeps that exact. It isn't ok for NaN, infinities, or exponents too big
+// to be worth writing.
+func magnitude(lit string) (e int, negative, zero, ok bool) {
+	const maxExp = 10_000
+	negative = strings.HasPrefix(lit, "-")
+	lit = strings.TrimPrefix(lit, "-")
+	mant, exp, _ := strings.Cut(strings.ToLower(lit), "e")
+	exp10 := 0
+	if exp != "" {
+		n, err := strconv.Atoi(exp)
+		if err != nil || n < -maxExp || n > maxExp {
+			return 0, false, false, false
+		}
+		exp10 = n
 	}
-	m := math.Abs(x)
-	e := 0
-	for math.Pow10(e) < m {
-		e++
+	whole, frac, _ := strings.Cut(mant, ".")
+	digits := whole + frac
+	if digits == "" || strings.Trim(digits, "0123456789") != "" {
+		return 0, false, false, false
 	}
-	for e > -300 && math.Pow10(e-1) >= m {
-		e--
+	// The number is 0.digits × 10^k.
+	k := len(whole) + exp10
+	trimmed := strings.TrimLeft(digits, "0")
+	if trimmed == "" {
+		return 0, false, true, true
 	}
-	v := math.Copysign(math.Pow10(e), x)
-	if e >= -6 && e <= 20 {
-		return json.Number(strconv.FormatFloat(v, 'f', -1, 64))
+	k -= len(digits) - len(trimmed)
+	if strings.TrimRight(trimmed, "0") == "1" {
+		k-- // a power of ten already
 	}
-	return json.Number(strconv.FormatFloat(v, 'g', -1, 64))
+	return k, negative, false, true
+}
+
+// pow10 writes 10^e, or -10^e, as a JSON number.
+func pow10(e int, negative bool) json.Number {
+	var s string
+	switch {
+	case e >= 0 && e <= 20:
+		s = "1" + strings.Repeat("0", e)
+	case e < 0 && e >= -6:
+		s = "0." + strings.Repeat("0", -e-1) + "1"
+	default:
+		s = "1e" + strconv.Itoa(e)
+	}
+	if negative {
+		s = "-" + s
+	}
+	return json.Number(s)
 }
 
 func (in *inferrer) arrays(arrs [][]any, p place) *Schema {
