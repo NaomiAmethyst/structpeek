@@ -48,12 +48,33 @@ func TestTagsFollowEnumRules(t *testing.T) {
 			return fmt.Sprintf(`{"name": "Bob", "plan": "p", "seats": %d, "owner": true}`, i)
 		})
 	}
-	noEnums := DefaultOptions()
-	noEnums.MaxEnum = 0
+	noEnums := withValues()
+	noEnums.Enums = false
 	noneOf(t, runWith(t, noEnums, shapes(200)), "Alice", "Bob")
-	noneOf(t, runWith(t, DefaultOptions(), shapes(10)), "Alice", "Bob")
-	if out := runWith(t, DefaultOptions(), shapes(200)); !strings.Contains(out, `"const":"Alice"`) {
+	noneOf(t, runWith(t, DefaultOptions(), shapes(200)), "Alice", "Bob")
+	maxZero := withValues()
+	maxZero.MaxEnum = 0
+	noneOf(t, runWith(t, maxZero, shapes(200)), "Alice", "Bob")
+	noneOf(t, runWith(t, withValues(), shapes(10)), "Alice", "Bob")
+	if out := runWith(t, withValues(), shapes(200)); !strings.Contains(out, `"const":"Alice"`) {
 		t.Errorf("no tag when enums would be shown:\n%s", out)
+	}
+}
+
+// TestDefaultsWriteNoValues checks that by default nothing from the
+// values gets into a schema, however safe it looks.
+func TestDefaultsWriteNoValues(t *testing.T) {
+	out := runWith(t, DefaultOptions(), records(400, func(i int) string {
+		return fmt.Sprintf(`{"kind": %q, "status": %q, "n": %d, "f": %g, "xs": [%d, "a"], "m": {"%d": %d}}`,
+			[]string{"a", "b"}[i%2], []string{"open", "shut"}[i%2], i, float64(i)/7, i, i, i)
+	}))
+	for _, keyword := range []string{`"enum"`, `"const"`, `"minimum"`, `"maximum"`} {
+		if strings.Contains(out, keyword) {
+			t.Errorf("%s in schema:\n%s", keyword, out)
+		}
+	}
+	if !strings.Contains(out, "lowCardinalityString") {
+		t.Errorf("repeated strings aren't marked low-cardinality:\n%s", out)
 	}
 }
 
@@ -65,11 +86,11 @@ func TestMapsKeepSensitiveKeys(t *testing.T) {
 		parts = append(parts, fmt.Sprintf(`"%d": "hunter2"`, i))
 	}
 	parts = append(parts, `"password": "hunter2"`)
-	out := runWith(t, DefaultOptions(), `{"m": {`+strings.Join(parts, ", ")+`}}`)
+	out := runWith(t, withValues(), `{"m": {`+strings.Join(parts, ", ")+`}}`)
 	noneOf(t, out, "hunter2")
 
 	nums := strings.ReplaceAll(strings.Join(parts, ", "), `"hunter2"`, "1234")
-	out = runWith(t, DefaultOptions(), `{"m": {`+nums+`}}`)
+	out = runWith(t, withValues(), `{"m": {`+nums+`}}`)
 	if strings.Contains(out, "maximum") {
 		t.Errorf("range for a map with a secret key:\n%s", out)
 	}
@@ -78,21 +99,21 @@ func TestMapsKeepSensitiveKeys(t *testing.T) {
 // Name/value lists, like environment variables, say what's secret in a
 // value rather than a key.
 func TestNamedValues(t *testing.T) {
-	out := runWith(t, DefaultOptions(), records(60, func(i int) string {
+	out := runWith(t, withValues(), records(60, func(i int) string {
 		name := []string{"LOG_LEVEL", "DB_PASSWORD", "REGION"}[i%3]
 		return fmt.Sprintf(`{"name": %q, "value": "hunter2"}`, name)
 	}))
 	noneOf(t, out, "hunter2")
 
 	// XML-style too: <param name="api_key" value="..."/>.
-	out = runWith(t, DefaultOptions(), records(60, func(i int) string {
+	out = runWith(t, withValues(), records(60, func(i int) string {
 		return fmt.Sprintf(`{"param": {"name": %q, "value": "s3cret"}}`, []string{"api_key", "colour"}[i%2])
 	}))
 	noneOf(t, out, "s3cret")
 
 	// A secret-sounding value elsewhere isn't a name, and doesn't hide
 	// anything.
-	out = runWith(t, DefaultOptions(), records(60, func(i int) string {
+	out = runWith(t, withValues(), records(60, func(i int) string {
 		return fmt.Sprintf(`{"kind": "Secret", "method": "card", "status": %q}`, []string{"open", "shut"}[i%2])
 	}))
 	if !strings.Contains(out, `"enum":["open","shut"]`) {

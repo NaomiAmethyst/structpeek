@@ -8,14 +8,10 @@
         "type": "string"
       },
       {
-        "type": "number",
-        "minimum": -10,
-        "maximum": 100
+        "type": "number"
       },
       {
-        "type": "integer",
-        "minimum": 0,
-        "maximum": 100
+        "type": "integer"
       }
     ],
     "items": false,

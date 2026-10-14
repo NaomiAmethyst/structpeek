@@ -13,22 +13,24 @@
 //     Objects whose key sets overlap enough are one kind, widened to fit
 //     (keys some lack become optional, keys with mixed values get each
 //     kind); objects too different to merge stay separate kinds in an
-//     anyOf, told apart by a constant tag field if they have one. Objects
+//     anyOf, told apart by a constant tag field if they have one (with
+//     Enums). Objects
 //     whose keys are data (IDs, numbers, addresses, tokens, or simply too
 //     many to be field names) are maps, and their keys are withheld.
 //   - Strings get a format if they all share one. Otherwise strings with
 //     few distinct values for how often they're seen are low-cardinality:
-//     an enum if every value is safe to show, else a reference to
-//     $defs/lowCardinalityString. Strings that look random are a
+//     a reference to $defs/lowCardinalityString, or, with Enums, an enum
+//     if every value is safe to show. Strings that look random are a
 //     reference to $defs/highEntropyString, and the rest are just strings.
-//   - Numbers are integers if they're all written as integers, with a
-//     range rounded out to powers of ten.
+//   - Numbers are integers if they're all written as integers, and, with
+//     Ranges, have a range rounded out to powers of ten.
 //   - Arrays of the same length whose positions hold different things are
 //     tuples; otherwise their elements are pooled into one item schema.
 //
-// Nothing that could be a secret is ever written: only enums and tags
-// carry values from the data, and only for short, repeated, non-random
-// values that aren't secret. Values are secret under a key that sounds
+// By default, nothing from the data's values is written at all. With
+// Enums, enums and tags carry values from the data, but only short,
+// repeated, non-random values that aren't secret; with Ranges, numbers
+// show their scale. Values are secret under a key that sounds
 // it, at any depth; in a map with any such key, as its values are pooled;
 // and in a list of objects where any names a secret under a name-like key,
 // as in {"name": "DB_PASSWORD", "value": "..."}.
@@ -48,11 +50,17 @@ import (
 
 // Options tune inference.
 type Options struct {
+	// Enums lets low-cardinality strings whose values all look safe be
+	// enums, and kinds of object be tagged with such values. Without it,
+	// no string from the data is written.
+	Enums bool
+	// Ranges gives numbers a range, rounded out to powers of ten.
+	Ranges bool
 	// Cardinality is the fraction of a string's observations below which
 	// its count of distinct values makes it low-cardinality.
 	Cardinality float64
 	// MaxEnum is the most values an enum may list, and kinds of object
-	// that may be tagged. Zero turns both off.
+	// that may be tagged.
 	MaxEnum int
 	// Similarity is how alike (by Jaccard index of their keys) two kinds
 	// of object must be to merge into one.
@@ -63,7 +71,7 @@ type Options struct {
 }
 
 // DefaultOptions returns the options structpeek uses unless told
-// otherwise.
+// otherwise: no enums, tags or ranges.
 func DefaultOptions() Options {
 	return Options{Cardinality: 0.05, MaxEnum: 32, Similarity: 0.5, MaxProperties: 200}
 }
@@ -292,7 +300,7 @@ func (in *inferrer) strings(vals []string, p place) *Schema {
 // too many, the key doesn't sound secret, and none of them is long,
 // random or opaque, an address or ID, or has a lot of digits.
 func (in *inferrer) enumSafe(vals []string, p place) bool {
-	if p.sensitive || len(vals) > in.opts.MaxEnum {
+	if !in.opts.Enums || p.sensitive || len(vals) > in.opts.MaxEnum {
 		return false
 	}
 	for _, v := range vals {
@@ -312,7 +320,7 @@ func (in *inferrer) enumSafe(vals []string, p place) bool {
 
 func (in *inferrer) numbers(vals []json.Number, p place) *Schema {
 	s := &Schema{Type: "integer"}
-	ranged := !p.sensitive
+	ranged := in.opts.Ranges && !p.sensitive
 	var pos, neg bool      // whether any are above or below zero
 	var posExp, negExp int // the most powers of ten they need, either side
 	for _, v := range vals {

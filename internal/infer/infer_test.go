@@ -28,9 +28,17 @@ func run(t *testing.T, src string) *Schema {
 	return runDocs(t, doc)
 }
 
+// withValues returns the default options with enums, tags and ranges on,
+// which most tests here are about.
+func withValues() Options {
+	o := DefaultOptions()
+	o.Enums, o.Ranges = true, true
+	return o
+}
+
 func runDocs(t *testing.T, docs ...any) *Schema {
 	t.Helper()
-	s := Infer(docs, DefaultOptions())
+	s := Infer(docs, withValues())
 	b, err := Marshal(s, "  ")
 	if err != nil {
 		t.Fatal(err)

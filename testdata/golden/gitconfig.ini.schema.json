@@ -87,9 +87,7 @@
       "type": "object",
       "properties": {
         "postBuffer": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 1000000000
+          "type": "integer"
         }
       },
       "required": [

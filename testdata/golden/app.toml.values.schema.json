@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "debug": {
+      "type": "boolean"
+    },
+    "started": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "server": {
+      "type": "object",
+      "properties": {
+        "listen": {
+          "type": "string",
+          "format": "ipv4"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "timeouts": {
+          "type": "object",
+          "properties": {
+            "read": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10
+            },
+            "write": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10
+            }
+          },
+          "required": [
+            "read",
+            "write"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "listen",
+        "port",
+        "timeouts"
+      ],
+      "additionalProperties": false
+    },
+    "database": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "pool": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "url",
+        "pool"
+      ],
+      "additionalProperties": false
+    },
+    "upstreams": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "weight": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10
+          },
+          "retry": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 10
+              }
+            ],
+            "items": false,
+            "minItems": 2
+          }
+        },
+        "required": [
+          "name",
+          "url",
+          "weight"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "secrets": {
+      "type": "object",
+      "properties": {
+        "signing_key": {
+          "$ref": "#/$defs/highEntropyString"
+        }
+      },
+      "required": [
+        "signing_key"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "name",
+    "debug",
+    "started",
+    "server",
+    "database",
+    "upstreams",
+    "secrets"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "highEntropyString": {
+      "description": "A string that looks randomly generated, such as a key, token, hash or opaque ID. The values are withheld.",
+      "type": "string"
+    }
+  }
+}

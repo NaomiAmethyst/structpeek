@@ -214,7 +214,7 @@ func (in *inferrer) tag(kinds [][]*decode.Object, schemas []*Schema, p place) {
 	for _, objs := range kinds {
 		n += len(objs)
 	}
-	if p.sensitive || float64(len(kinds)) >= in.opts.Cardinality*float64(n) {
+	if !in.opts.Enums || p.sensitive || float64(len(kinds)) >= in.opts.Cardinality*float64(n) {
 		return
 	}
 candidates:

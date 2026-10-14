@@ -20,22 +20,16 @@
           "format": "ipv4"
         },
         "port": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 10000
+          "type": "integer"
         },
         "timeouts": {
           "type": "object",
           "properties": {
             "read": {
-              "type": "number",
-              "minimum": 0,
-              "maximum": 10
+              "type": "number"
             },
             "write": {
-              "type": "number",
-              "minimum": 0,
-              "maximum": 10
+              "type": "number"
             }
           },
           "required": [
@@ -60,9 +54,7 @@
           "format": "uri"
         },
         "pool": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 100
+          "type": "integer"
         }
       },
       "required": [
@@ -84,9 +76,7 @@
             "format": "uri"
           },
           "weight": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 10
+            "type": "integer"
           },
           "retry": {
             "type": "array",
@@ -95,9 +85,7 @@
                 "type": "string"
               },
               {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 10
+                "type": "integer"
               }
             ],
             "items": false,

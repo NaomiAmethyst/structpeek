@@ -5,20 +5,13 @@
     "type": "object",
     "properties": {
       "id": {
-        "type": "integer",
-        "minimum": 0,
-        "maximum": 100
+        "type": "integer"
       },
       "name": {
         "type": "string"
       },
       "team": {
-        "type": "string",
-        "enum": [
-          "data",
-          "platform",
-          "web"
-        ]
+        "$ref": "#/$defs/lowCardinalityString"
       },
       "joined": {
         "type": "string",
@@ -28,14 +21,10 @@
         "type": [
           "integer",
           "null"
-        ],
-        "minimum": 0,
-        "maximum": 10
+        ]
       },
       "salary": {
-        "type": "integer",
-        "minimum": 0,
-        "maximum": 1000000
+        "type": "integer"
       },
       "remote": {
         "type": "boolean"
@@ -51,5 +40,11 @@
       "remote"
     ],
     "additionalProperties": false
+  },
+  "$defs": {
+    "lowCardinalityString": {
+      "description": "A string drawn from a small set of values that repeat. The values are withheld, as they could be sensitive.",
+      "type": "string"
+    }
   }
 }

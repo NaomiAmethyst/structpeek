@@ -1,9 +1,11 @@
 # Security
 
-structpeek's promise is that a schema never gives away a value that could
-be sensitive. If you find input that gets a password, token, key, personal
-detail or other such value into a schema, that's a security bug, even if
-it seems minor.
+structpeek's promise is that, by default, a schema gives away nothing from
+the data's values, and that even with `--enums` or `--ranges` it gives away
+nothing that could be sensitive. If you find input that gets a value into
+a default schema, or a password, token, key, personal detail or other such
+value into one made with those options, that's a security bug, even if it
+seems minor.
 
 Please report it privately, through GitHub's [private vulnerability
 reporting](https://github.com/NaomiAmethyst/structpeek/security/advisories/new)

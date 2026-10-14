@@ -1,0 +1,172 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "placed": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "paid",
+          "pending",
+          "refunded",
+          "shipped"
+        ]
+      },
+      "currency": {
+        "type": "string",
+        "enum": [
+          "EUR",
+          "GBP"
+        ]
+      },
+      "customer": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "name": {
+            "type": "string"
+          },
+          "address": {
+            "type": "object",
+            "properties": {
+              "city": {
+                "type": "string",
+                "enum": [
+                  "Austin",
+                  "Leeds",
+                  "Lyon",
+                  "Osaka",
+                  "Porto"
+                ]
+              },
+              "postcode": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "city",
+              "postcode"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "email",
+          "name",
+          "address"
+        ],
+        "additionalProperties": false
+      },
+      "lines": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "sku": {
+              "type": "string"
+            },
+            "qty": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10
+            },
+            "price": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            }
+          },
+          "required": [
+            "sku",
+            "qty",
+            "price"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "payment": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "method": {
+                "type": "string",
+                "const": "card"
+              },
+              "last4": {
+                "type": "string"
+              },
+              "auth_code": {
+                "$ref": "#/$defs/highEntropyString"
+              }
+            },
+            "required": [
+              "method",
+              "last4",
+              "auth_code"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "method": {
+                "type": "string",
+                "const": "invoice"
+              },
+              "due_days": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              }
+            },
+            "required": [
+              "method",
+              "due_days"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "gift": {
+        "type": "boolean"
+      },
+      "notes": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    "required": [
+      "id",
+      "placed",
+      "status",
+      "currency",
+      "customer",
+      "lines",
+      "payment",
+      "gift",
+      "notes"
+    ],
+    "additionalProperties": false
+  },
+  "$defs": {
+    "highEntropyString": {
+      "description": "A string that looks randomly generated, such as a key, token, hash or opaque ID. The values are withheld.",
+      "type": "string"
+    }
+  }
+}

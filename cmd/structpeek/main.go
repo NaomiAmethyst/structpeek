@@ -26,9 +26,10 @@ var version = ""
 const usage = `Usage: structpeek [options] [file...]
 
 Reads data files and writes a JSON Schema (2020-12) describing their
-structure, without values that could be sensitive. With no file, or "-",
-reads standard input. Several files are taken as examples of one kind of
-document, and the schema fits them all.
+structure. Unless --enums or --ranges says otherwise, nothing from the
+values is written: only their structure and what kinds of value they are.
+With no file, or "-", reads standard input. Several files are taken as
+examples of one kind of document, and the schema fits them all.
 
 Formats: json (and JSON Lines), yaml, toml, ini, csv, tsv, xml. Each
 file's format comes from its name, or else from what it looks like.
@@ -58,11 +59,12 @@ func run(args []string, stdin io.Reader, stdout io.Writer) error {
 	header := fs.String("csv-header", "auto", "whether CSV/TSV files have a header row: auto, yes or no")
 	output := fs.StringP("output", "o", "", "write the schema to `file` instead of standard output")
 	compact := fs.BoolP("compact", "c", false, "write the schema on one line")
+	fs.BoolVar(&opts.Enums, "enums", false,
+		"list repeated values that look safe in enums, and tag kinds of object with them")
+	fs.BoolVar(&opts.Ranges, "ranges", false, "give numbers a range, rounded out to powers of ten")
+	fs.IntVar(&opts.MaxEnum, "max-enum", opts.MaxEnum, "with --enums, list at most `n` values in an enum")
 	fs.Float64Var(&opts.Cardinality, "cardinality", opts.Cardinality,
 		"strings with fewer distinct values than this `fraction` of how often they're seen are low-cardinality")
-	fs.IntVar(&opts.MaxEnum, "max-enum", opts.MaxEnum, "list at most `n` values in an enum (0: never list any, nor tag kinds of object)")
-	noEnums := fs.Bool("no-enums", false,
-		"never list values in an enum or tag: low-cardinality strings are always $defs/lowCardinalityString")
 	fs.Float64Var(&opts.Similarity, "similarity", opts.Similarity,
 		"merge kinds of object whose keys are at least this `alike` (0-1, by Jaccard index)")
 	fs.IntVar(&opts.MaxProperties, "max-properties", opts.MaxProperties,
@@ -77,10 +79,6 @@ func run(args []string, stdin io.Reader, stdout io.Writer) error {
 	if *showVersion {
 		fmt.Fprintln(stdout, "structpeek", buildVersion())
 		return nil
-	}
-
-	if *noEnums {
-		opts.MaxEnum = 0
 	}
 
 	format, err := decode.ParseFormat(*formatName)

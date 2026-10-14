@@ -9,7 +9,7 @@ See what's in a data file without seeing what's in it.
 `structpeek` reads JSON, JSON Lines, YAML, TOML, INI, CSV, TSV or XML and
 writes a [JSON Schema](https://json-schema.org/) (2020-12) for its structure: the
 keys, types, formats, optional fields and kinds of record, but none of the
-values that could be sensitive. Use it to get to know a file, or give it to
+values. Use it to get to know a file, or give it to
 an AI agent instead of the file itself, so it can understand the data
 without reading anyone's passwords.
 
@@ -26,7 +26,7 @@ $ structpeek orders.jsonl
     "properties": {
       "id": { "type": "string", "format": "uuid" },
       "status": { "type": "string" },
-      "total": { "type": "number", "minimum": 0, "maximum": 100 },
+      "total": { "type": "number" },
       "token": { "$ref": "#/$defs/highEntropyString" },
       "tags": { "type": "array", "items": { "type": "string" } }
     },
@@ -57,8 +57,8 @@ sample exactly.
 observation has are required. Objects whose keys overlap enough are one
 kind, widened to fit: keys some lack become optional, and keys holding
 different types get each type. Objects too different to merge stay separate
-kinds in an `anyOf`, and if a field such as `type` tells them apart, each
-kind gets its value as a `const`.
+kinds in an `anyOf`. With `--enums`, if a field such as `type` tells them
+apart, each kind gets its value as a `const`.
 
 Objects that each have exactly one key, but not all the same one (a list
 of XML elements, or a union tagged by its key, like `{"add": …}` and
@@ -73,17 +73,16 @@ are **maps**: their values are pooled into one schema under
 **Strings** get a `format` (`date-time`, `date`, `time`, `email`, `uri`,
 `uuid`, `ipv4`, `ipv6`) if they all share one. Otherwise:
 
-- if they have few distinct values (fewer than 5% of how often they're seen)
-  and every value is safe to show, they're an `enum`;
-- if they have few distinct values but some aren't safe to show, they're a
-  reference to `$defs/lowCardinalityString`;
+- if they have few distinct values (fewer than 5% of how often they're
+  seen), they're a reference to `$defs/lowCardinalityString`, or, with
+  `--enums`, an `enum` if every value is safe to show;
 - if they look randomly generated, they're a reference to
   `$defs/highEntropyString`;
 - otherwise they're just strings.
 
-**Numbers** are `integer` if they're all written as integers, else `number`,
-with a range rounded out to powers of ten: it shows their scale without
-giving any of them away.
+**Numbers** are `integer` if they're all written as integers, else
+`number`. With `--ranges`, they get a range rounded out to powers of ten:
+it shows their scale without giving any of them away.
 
 **Booleans** are `boolean`, and **nulls** make a place nullable.
 
@@ -93,31 +92,35 @@ widen into one string schema, numbers into one range, objects into kinds as
 above. Arrays that are always the same length (seen at least three times)
 get `minItems` and `maxItems`.
 
-## What it never writes
+## What it writes
 
-The only things from the data that appear in a schema are:
+By default, nothing from the data's values: a schema holds the data's
+keys, and what kinds of value they hold, and that's all.
 
-- **keys**, unless the object is taken for a map;
-- **enum values**, which must repeat (fewer distinct values than 5% of
-  observations, so a place seen fewer than 21 times never has one), be
-  short, not look random or opaque, not be an address, ID or URL, not have
-  six or more digits, and not be secret (see below);
-- **tag values** that tell kinds of object apart, which are shown just as
-  enum values are, under the same rules: each kind's value must repeat, and
-  fewer kinds than 5% of the objects;
-- the **power of ten** above and below each place's numbers (none at all
-  for secrets, or for numbers too big for a float).
+Keys are written as they are, unless the object is taken for a map, so
+objects whose keys are IDs, numbers, dates, addresses or tokens don't give
+those away.
+
+Two options write a little more, for when the structure alone isn't
+enough:
+
+- `--enums` lists **enum values**, and **tags** kinds of object with the
+  field that tells them apart. These values must repeat (fewer distinct
+  values than 5% of observations, so a place seen fewer than 21 times
+  never has one; for tags, fewer kinds than 5% of the objects), be short,
+  not look random or opaque, not be an address, ID or URL, not have six or
+  more digits, and not be secret (see below).
+- `--ranges` gives numbers the **power of ten** above and below them
+  (none for secrets, or for numbers too big for a float).
 
 A value is secret if it sits, at any depth, under a key that sounds secret
 (`password`, `token`, `apiKey`, `credentials`, `session`, `pin` and many
 more), in a map with any such key (its values are pooled), or in a
 name/value list where any name sounds secret (`{"name": "DB_PASSWORD",
-"value": …}`, or `<param name="api_key" value="…"/>`). `--no-enums` (or
-`--max-enum 0`) turns off enums and tags alike.
-
-Anything that looks like a credential (private keys, JWTs, tokens with
-well-known prefixes, URLs with passwords in) or a random string is never an
-enum value, tag or key.
+"value": …}`, or `<param name="api_key" value="…"/>`). Anything that looks
+like a credential (private keys, JWTs, tokens with well-known prefixes,
+URLs with passwords in) or a random string is never an enum value, tag or
+key.
 
 ## Formats
 
@@ -179,8 +182,9 @@ examples of one kind of document, and the schema fits them all:
 | `-o`, `--output` *file* | write the schema to a file |
 | `-c`, `--compact` | write the schema on one line |
 | `--cardinality` *fraction* | strings with fewer distinct values than this fraction of observations are low-cardinality (default 0.05) |
-| `--max-enum` *n* | list at most *n* values in an enum (default 32; 0 for none, and no tags) |
-| `--no-enums` | never list values in an enum or tag: low-cardinality strings are always `$defs/lowCardinalityString` |
+| `--enums` | list repeated values that look safe in enums, and tag kinds of object with them |
+| `--ranges` | give numbers a range, rounded out to powers of ten |
+| `--max-enum` *n* | with `--enums`, list at most *n* values in an enum (default 32) |
 | `--similarity` *0–1* | how alike (by Jaccard index of their keys) kinds of object must be to merge (default 0.5) |
 | `--max-properties` *n* | take objects with more distinct keys than this for maps (default 200) |
 
@@ -188,22 +192,21 @@ examples of one kind of document, and the schema fits them all:
 
 Before reading a data file of unknown size or sensitivity, run
 `structpeek FILE` and work from the schema. `$defs/lowCardinalityString`
-means a field holds a few repeated values (like a status or a category)
-that were withheld; `$defs/highEntropyString` means keys, tokens, hashes or
+means a field holds a few repeated values (like a status or a category); `$defs/highEntropyString` means keys, tokens, hashes or
 opaque IDs. Optional fields are the ones missing from `required`, and
 `anyOf` means several kinds of record are mixed together.
 
 ## Limitations
 
-- Telling secrets from ordinary text is heuristic. About one random token
-  in a thousand passes for ordinary text: it's then typed as a plain
-  `string` rather than `$defs/highEntropyString`, but a blunter check still
-  keeps it out of enums and tags, so its value isn't written.
-- Values that are sensitive but ordinary-looking (people's names, cities)
-  can appear in an enum or tag if they repeat often enough; `--no-enums`
-  turns both off.
 - Keys are written as they are, unless an object looks like a map; a small
   object keyed by, say, usernames may not.
+- With `--enums`, telling secrets from ordinary values is heuristic.
+  Values that are sensitive but ordinary-looking (people's names, cities)
+  can appear in an enum or tag if they repeat often enough, and so can a
+  secret that nothing about its key, its neighbours or its shape gives
+  away. Leave `--enums` off for data you can't vouch for.
+- `$defs/highEntropyString` is a guess too: about one random token in a
+  thousand passes for ordinary text, and is typed as a plain `string`.
 - Whether a CSV file has a header is a guess; a file that's all text and
   has none may be taken to have one.
 - The whole file is read into memory; structpeek gets through about 8 MB a

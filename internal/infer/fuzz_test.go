@@ -25,7 +25,7 @@ func FuzzInfer(f *testing.F) {
 		if err != nil {
 			return
 		}
-		b, err := Marshal(Infer([]any{doc}, DefaultOptions()), "")
+		b, err := Marshal(Infer([]any{doc}, withValues()), "")
 		if err != nil {
 			t.Fatal(err)
 		}
