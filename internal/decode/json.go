@@ -4,6 +4,7 @@
 package decode
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,6 +23,11 @@ func decodeJSON(data []byte) (any, error) {
 	for p.skipSpace(); p.pos < len(p.data); p.skipSpace() {
 		v, err := p.value(0)
 		if err != nil {
+			if len(docs) == 0 {
+				if line := jsonStartsAt(data); line > 1 {
+					return nil, fmt.Errorf("%w; it looks like JSON starts at line %d, after text that isn't JSON", err, line)
+				}
+			}
 			return nil, err
 		}
 		docs = append(docs, v)
@@ -33,6 +39,27 @@ func decodeJSON(data []byte) (any, error) {
 		return docs[0], nil
 	}
 	return docs, nil
+}
+
+// jsonStartsAt looks for a line, after the first, from which the rest of
+// data is JSON, as when a log's been saved along with it, and returns its
+// number, or 0.
+func jsonStartsAt(data []byte) int {
+	tries := 0
+	for i, line := 0, 1; i < len(data) && tries < 5; line++ {
+		end := bytes.IndexByte(data[i:], '\n')
+		if end < 0 {
+			end = len(data) - i
+		}
+		if t := bytes.TrimLeft(data[i:i+end], " \t"); line > 1 && len(t) > 0 && (t[0] == '{' || t[0] == '[') {
+			tries++
+			if _, err := decodeJSON(data[i:]); err == nil {
+				return line
+			}
+		}
+		i += end + 1
+	}
+	return 0
 }
 
 type jsonParser struct {
@@ -179,7 +206,7 @@ func (p *jsonParser) string() (string, error) {
 				return string(raw[1 : len(raw)-1]), nil
 			}
 			var s string
-			if err := json.Unmarshal(raw, &s); err != nil {
+			if err := json.Unmarshal(escapeControls(raw), &s); err != nil {
 				p.pos = start
 				return "", p.errorf("bad string: %v", err)
 			}
@@ -187,13 +214,30 @@ func (p *jsonParser) string() (string, error) {
 		case c == '\\':
 			escaped = true
 			p.pos += 2
-		case c < 0x20:
-			return "", p.errorf("control character in string")
 		default:
 			p.pos++
 		}
 	}
 	return "", p.errorf("unterminated string")
+}
+
+// escapeControls escapes control characters in a JSON string, which JSON
+// forbids raw but broken files have anyway: they're accepted, as Python's
+// json does with strict=False, since no string from the data is written
+// out.
+func escapeControls(raw []byte) []byte {
+	if !bytes.ContainsFunc(raw, func(r rune) bool { return r < 0x20 }) {
+		return raw
+	}
+	out := make([]byte, 0, len(raw)+16)
+	for _, c := range raw {
+		if c < 0x20 {
+			out = fmt.Appendf(out, `\u%04x`, c)
+		} else {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 func (p *jsonParser) number() (any, error) {

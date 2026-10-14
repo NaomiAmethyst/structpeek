@@ -5,6 +5,7 @@ package decode
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -54,6 +55,19 @@ func TestJSON(t *testing.T) {
 		`{"z":1,"a":[1.0,"x",null,true],"m":{"b":2,"a":1}}`)
 	check(t, JSON, Options{}, "{\"a\":1}\n{\"a\":2}\n", `[{"a":1},{"a":2}]`)
 	check(t, JSON, Options{}, "\xef\xbb\xbf[]", `[]`)
+	// Raw control characters, as broken files have, are let through.
+	check(t, JSON, Options{}, "{\"a\": \"x\x14y\", \"b\": \"\\n\x01\"}", `{"a":"x\u0014y","b":"\n\u0001"}`)
+
+	// A log saved with the JSON gets a hint.
+	_, err := Decode([]byte("waiting...\n{oops\nstill waiting\n{\"a\": 1}\n"), JSON, Options{})
+	if err == nil || !strings.Contains(err.Error(), "JSON starts at line 4") {
+		t.Errorf("no hint where the JSON starts: %v", err)
+	}
+	_, err = Decode([]byte("not json\nat all\n"), JSON, Options{})
+	if err == nil || strings.Contains(err.Error(), "starts at line") {
+		t.Errorf("wrong hint: %v", err)
+	}
+
 	for _, bad := range []string{``, `{"a":`, `{} }`, `[1,]`} {
 		if _, err := Decode([]byte(bad), JSON, Options{}); err == nil {
 			t.Errorf("Decode(%q) succeeded", bad)

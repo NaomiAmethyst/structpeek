@@ -196,7 +196,10 @@ INI, and CSV or TSV (if every row has as many fields) that reads it.
 
 Each is read as JSON would see it:
 
-- **JSON**: a stream of several values (JSON Lines) becomes an array.
+- **JSON**: a stream of several values (JSON Lines) becomes an array. Raw
+  control characters in strings, which JSON forbids but broken files have,
+  are accepted. If the JSON comes after other text, such as a log saved
+  with it, the error says where it starts.
 - **YAML**: anchors, aliases and `<<` merges are followed; dates and other
   scalars that JSON lacks become strings; several documents become an array.
 - **TOML**: dates and times become strings.
