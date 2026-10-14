@@ -80,6 +80,29 @@ func TestSeveralFilesAndStdin(t *testing.T) {
 	}
 }
 
+func TestNoEnums(t *testing.T) {
+	file := "../../testdata/people.csv"
+	for _, c := range []struct {
+		args  []string
+		enums bool
+	}{
+		{nil, true}, {[]string{"--no-enums"}, false}, {[]string{"--max-enum", "0"}, false},
+		{[]string{"--no-enums", "--max-enum", "50"}, false},
+	} {
+		var out bytes.Buffer
+		if err := run(append(c.args, "-c", file), nil, &out); err != nil {
+			t.Fatal(err)
+		}
+		got := out.String()
+		if strings.Contains(got, `"enum"`) != c.enums {
+			t.Errorf("%q: enums = %v, want %v:\n%s", c.args, !c.enums, c.enums, got)
+		}
+		if !c.enums && !strings.Contains(got, `"team":{"$ref":"#/$defs/lowCardinalityString"}`) {
+			t.Errorf("%q: team isn't a lowCardinalityString:\n%s", c.args, got)
+		}
+	}
+}
+
 func TestBadArguments(t *testing.T) {
 	for _, args := range [][]string{
 		{"-f", "xml"}, {"--csv-header", "maybe"}, {"--cardinality", "2"}, {"/does/not/exist.json"},

@@ -174,6 +174,7 @@ examples of one kind of document, and the schema fits them all:
 | `-c`, `--compact` | write the schema on one line |
 | `--cardinality` *fraction* | strings with fewer distinct values than this fraction of observations are low-cardinality (default 0.05) |
 | `--max-enum` *n* | list at most *n* values in an enum (default 32; 0 for none) |
+| `--no-enums` | never list values in an enum: low-cardinality strings are always `$defs/lowCardinalityString` |
 | `--similarity` *0–1* | how alike (by Jaccard index of their keys) kinds of object must be to merge (default 0.5) |
 | `--max-properties` *n* | take objects with more distinct keys than this for maps (default 200) |
 
@@ -193,7 +194,7 @@ opaque IDs. Optional fields are the ones missing from `required`, and
   `string` rather than `$defs/highEntropyString`, but a blunter check still
   keeps it out of enums and tags, so its value isn't written.
 - Values that are sensitive but ordinary-looking (people's names, cities)
-  can appear in an enum if they repeat often enough; `--max-enum 0` turns
+  can appear in an enum if they repeat often enough; `--no-enums` turns
   enums off.
 - Keys are written as they are, unless an object looks like a map; a small
   object keyed by, say, usernames may not.

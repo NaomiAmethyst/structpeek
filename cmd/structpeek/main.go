@@ -61,6 +61,8 @@ func run(args []string, stdin io.Reader, stdout io.Writer) error {
 	fs.Float64Var(&opts.Cardinality, "cardinality", opts.Cardinality,
 		"strings with fewer distinct values than this `fraction` of how often they're seen are low-cardinality")
 	fs.IntVar(&opts.MaxEnum, "max-enum", opts.MaxEnum, "list at most `n` values in an enum (0: never list any)")
+	noEnums := fs.Bool("no-enums", false,
+		"never list values in an enum: low-cardinality strings are always $defs/lowCardinalityString")
 	fs.Float64Var(&opts.Similarity, "similarity", opts.Similarity,
 		"merge kinds of object whose keys are at least this `alike` (0-1, by Jaccard index)")
 	fs.IntVar(&opts.MaxProperties, "max-properties", opts.MaxProperties,
@@ -75,6 +77,10 @@ func run(args []string, stdin io.Reader, stdout io.Writer) error {
 	if *showVersion {
 		fmt.Fprintln(stdout, "structpeek", buildVersion())
 		return nil
+	}
+
+	if *noEnums {
+		opts.MaxEnum = 0
 	}
 
 	format, err := decode.ParseFormat(*formatName)
