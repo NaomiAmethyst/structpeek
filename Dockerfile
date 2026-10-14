@@ -6,7 +6,7 @@
 #   docker run --rm -v "$PWD:/data:ro" ghcr.io/naomiamethyst/structpeek data.yaml
 
 # Cross-compiles on the build machine for each target platform.
-FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS build
 ARG TARGETOS TARGETARCH TARGETVARIANT
 ARG VERSION=dev
 WORKDIR /src
