@@ -15,6 +15,7 @@ import (
 // objects infers the schemas for the objects seen in one place: one map,
 // or one schema per kind of object.
 func (in *inferrer) objects(objs []*decode.Object, p place) []*Schema {
+	p = namesSecret(objs, p)
 	if in.isMap(objs) {
 		return []*Schema{in.mapSchema(objs, p)}
 	}
@@ -30,7 +31,7 @@ func (in *inferrer) objects(objs []*decode.Object, p place) []*Schema {
 		out[i] = in.object(k, p)
 	}
 	if len(kinds) > 1 {
-		tag(kinds, out, p)
+		in.tag(kinds, out, p)
 	}
 	return out
 }
@@ -67,6 +68,35 @@ func (in *inferrer) object(objs []*decode.Object, p place) *Schema {
 	s.AdditionalProperties = false
 	return s
 }
+
+// namesSecret marks a place as secret if any of its objects names a
+// secret under a name-like key, as name/value lists do: {"name":
+// "DB_PASSWORD", "value": "..."}, or <param name="api_key" value="..."/>
+// in XML. Values are pooled across the objects, so one such name makes all
+// of them secret.
+func namesSecret(objs []*decode.Object, p place) place {
+	if p.sensitive {
+		return p
+	}
+	for _, o := range objs {
+		for i, k := range o.Keys {
+			s, ok := o.Values[i].(string)
+			if ok && nameKeys[strings.ToLower(k)] && identRE.MatchString(s) && sensitiveName(s) {
+				return place{sensitive: true}
+			}
+		}
+	}
+	return p
+}
+
+// nameKeys are keys that, in a name/value list, hold the name.
+var nameKeys = map[string]bool{
+	"name": true, "key": true, "id": true, "field": true, "param": true, "parameter": true,
+	"variable": true, "var": true, "env": true, "setting": true, "option": true,
+	"property": true, "attribute": true, "label": true, "@name": true, "@key": true,
+}
+
+var identRE = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_.:-]{0,63}$`)
 
 // oneKeyEach reports whether every object has exactly one key, and not
 // all the same one: a choice of one of several keys, like a list of XML
@@ -177,16 +207,15 @@ var tagRE = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_.:/-]{0,39}$`)
 // tag looks for a field that tells kinds of object apart: one every kind
 // requires, holding the same short name throughout each kind and a
 // different one in each. If there is one, each kind's schema gets its
-// value as a const. Each kind needs at least two objects, so a value has
-// to repeat to be shown.
-func tag(kinds [][]*decode.Object, schemas []*Schema, p place) {
-	if p.sensitive {
-		return
-	}
+// value as a const. The values are shown just as an enum's would be, so
+// they have to pass the same tests, repetition included.
+func (in *inferrer) tag(kinds [][]*decode.Object, schemas []*Schema, p place) {
+	n := 0
 	for _, objs := range kinds {
-		if len(objs) < 2 {
-			return
-		}
+		n += len(objs)
+	}
+	if p.sensitive || float64(len(kinds)) >= in.opts.Cardinality*float64(n) {
+		return
 	}
 candidates:
 	for _, k := range schemas[0].Required {
@@ -208,10 +237,13 @@ candidates:
 				values[i] = v
 			}
 			v := values[i]
-			if seen[v] || !tagRE.MatchString(v) || format(v) != "" || highEntropy(v) || opaque(v) {
+			if seen[v] || !tagRE.MatchString(v) {
 				continue candidates
 			}
 			seen[v] = true
+		}
+		if !in.enumSafe(values, p.child(k)) {
+			continue
 		}
 		for i, s := range schemas {
 			s.Properties.Set(k, &Schema{Type: "string", Const: &values[i]})
@@ -283,6 +315,9 @@ func (in *inferrer) mapSchema(objs []*decode.Object, p place) *Schema {
 			if !seen[k] {
 				seen[k] = true
 				keys = append(keys, k)
+				// The values are pooled, so one secret key makes them all
+				// secret.
+				p.sensitive = p.sensitive || sensitiveName(k)
 			}
 		}
 	}

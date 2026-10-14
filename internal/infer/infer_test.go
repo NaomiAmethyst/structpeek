@@ -138,7 +138,7 @@ func TestObjects(t *testing.T) {
 }
 
 func TestKinds(t *testing.T) {
-	s := run(t, records(20, func(i int) string {
+	s := run(t, records(60, func(i int) string {
 		if i%2 == 0 {
 			return fmt.Sprintf(`{"kind": "circle", "r": %d}`, i)
 		}

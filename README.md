@@ -101,13 +101,19 @@ The only things from the data that appear in a schema are:
 - **enum values**, which must repeat (fewer distinct values than 5% of
   observations, so a place seen fewer than 21 times never has one), be
   short, not look random or opaque, not be an address, ID or URL, not have
-  six or more digits, and not sit under a key that sounds secret (`password`,
-  `token`, `apiKey`, `credentials`, `session`, `pin` and many more, at any
-  depth);
-- **tag values** that tell kinds of object apart, under the same rules
-  except that they must repeat within each kind;
+  six or more digits, and not be secret (see below);
+- **tag values** that tell kinds of object apart, which are shown just as
+  enum values are, under the same rules: each kind's value must repeat, and
+  fewer kinds than 5% of the objects;
 - the **power of ten** above and below each place's numbers (none at all
-  under a key that sounds secret, or for numbers too big for a float).
+  for secrets, or for numbers too big for a float).
+
+A value is secret if it sits, at any depth, under a key that sounds secret
+(`password`, `token`, `apiKey`, `credentials`, `session`, `pin` and many
+more), in a map with any such key (its values are pooled), or in a
+name/value list where any name sounds secret (`{"name": "DB_PASSWORD",
+"value": …}`, or `<param name="api_key" value="…"/>`). `--no-enums` (or
+`--max-enum 0`) turns off enums and tags alike.
 
 Anything that looks like a credential (private keys, JWTs, tokens with
 well-known prefixes, URLs with passwords in) or a random string is never an
@@ -173,8 +179,8 @@ examples of one kind of document, and the schema fits them all:
 | `-o`, `--output` *file* | write the schema to a file |
 | `-c`, `--compact` | write the schema on one line |
 | `--cardinality` *fraction* | strings with fewer distinct values than this fraction of observations are low-cardinality (default 0.05) |
-| `--max-enum` *n* | list at most *n* values in an enum (default 32; 0 for none) |
-| `--no-enums` | never list values in an enum: low-cardinality strings are always `$defs/lowCardinalityString` |
+| `--max-enum` *n* | list at most *n* values in an enum (default 32; 0 for none, and no tags) |
+| `--no-enums` | never list values in an enum or tag: low-cardinality strings are always `$defs/lowCardinalityString` |
 | `--similarity` *0–1* | how alike (by Jaccard index of their keys) kinds of object must be to merge (default 0.5) |
 | `--max-properties` *n* | take objects with more distinct keys than this for maps (default 200) |
 
@@ -194,8 +200,8 @@ opaque IDs. Optional fields are the ones missing from `required`, and
   `string` rather than `$defs/highEntropyString`, but a blunter check still
   keeps it out of enums and tags, so its value isn't written.
 - Values that are sensitive but ordinary-looking (people's names, cities)
-  can appear in an enum if they repeat often enough; `--no-enums` turns
-  enums off.
+  can appear in an enum or tag if they repeat often enough; `--no-enums`
+  turns both off.
 - Keys are written as they are, unless an object looks like a map; a small
   object keyed by, say, usernames may not.
 - Whether a CSV file has a header is a guess; a file that's all text and

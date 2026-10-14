@@ -60,9 +60,9 @@ func run(args []string, stdin io.Reader, stdout io.Writer) error {
 	compact := fs.BoolP("compact", "c", false, "write the schema on one line")
 	fs.Float64Var(&opts.Cardinality, "cardinality", opts.Cardinality,
 		"strings with fewer distinct values than this `fraction` of how often they're seen are low-cardinality")
-	fs.IntVar(&opts.MaxEnum, "max-enum", opts.MaxEnum, "list at most `n` values in an enum (0: never list any)")
+	fs.IntVar(&opts.MaxEnum, "max-enum", opts.MaxEnum, "list at most `n` values in an enum (0: never list any, nor tag kinds of object)")
 	noEnums := fs.Bool("no-enums", false,
-		"never list values in an enum: low-cardinality strings are always $defs/lowCardinalityString")
+		"never list values in an enum or tag: low-cardinality strings are always $defs/lowCardinalityString")
 	fs.Float64Var(&opts.Similarity, "similarity", opts.Similarity,
 		"merge kinds of object whose keys are at least this `alike` (0-1, by Jaccard index)")
 	fs.IntVar(&opts.MaxProperties, "max-properties", opts.MaxProperties,

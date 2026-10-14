@@ -28,7 +28,10 @@
 //
 // Nothing that could be a secret is ever written: only enums and tags
 // carry values from the data, and only for short, repeated, non-random
-// values under keys that don't sound sensitive.
+// values that aren't secret. Values are secret under a key that sounds
+// it, at any depth; in a map with any such key, as its values are pooled;
+// and in a list of objects where any names a secret under a name-like key,
+// as in {"name": "DB_PASSWORD", "value": "..."}.
 package infer
 
 import (
@@ -48,7 +51,8 @@ type Options struct {
 	// Cardinality is the fraction of a string's observations below which
 	// its count of distinct values makes it low-cardinality.
 	Cardinality float64
-	// MaxEnum is the most values an enum may list.
+	// MaxEnum is the most values an enum may list, and kinds of object
+	// that may be tagged. Zero turns both off.
 	MaxEnum int
 	// Similarity is how alike (by Jaccard index of their keys) two kinds
 	// of object must be to merge into one.
