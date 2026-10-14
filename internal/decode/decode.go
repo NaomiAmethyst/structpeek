@@ -14,6 +14,7 @@ import (
 	"math"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -80,49 +81,88 @@ func (o *Object) Get(k string) (any, bool) {
 type Format string
 
 const (
-	Auto Format = ""
-	JSON Format = "json"
-	YAML Format = "yaml"
-	TOML Format = "toml"
-	INI  Format = "ini"
-	CSV  Format = "csv"
-	TSV  Format = "tsv"
-	XML  Format = "xml"
+	Auto       Format = ""
+	JSON       Format = "json" // and JSON Lines, JSONC and JSON5
+	YAML       Format = "yaml"
+	TOML       Format = "toml"
+	INI        Format = "ini"
+	Env        Format = "env"
+	Properties Format = "properties"
+	CSV        Format = "csv"
+	TSV        Format = "tsv"
+	XML        Format = "xml"
+	HCL        Format = "hcl"
+	Plist      Format = "plist"
+	Netrc      Format = "netrc"
+	SSHConfig  Format = "ssh-config"
+	Pgpass     Format = "pgpass"
 )
 
 // Formats lists the formats a user can ask for by name.
-var Formats = []Format{JSON, YAML, TOML, INI, CSV, TSV, XML}
+var Formats = []Format{JSON, YAML, TOML, INI, Env, Properties, CSV, TSV, XML, HCL, Plist, Netrc, SSHConfig, Pgpass}
 
 // ParseFormat turns a name, as given on the command line, into a Format.
 func ParseFormat(s string) (Format, error) {
-	switch f := Format(strings.ToLower(s)); f {
-	case Auto, JSON, YAML, TOML, INI, CSV, TSV, XML:
+	f := Format(strings.ToLower(s))
+	if f == Auto || slices.Contains(Formats, f) {
 		return f, nil
+	}
+	switch f {
 	case "yml":
 		return YAML, nil
-	case "jsonl", "ndjson":
+	case "jsonl", "ndjson", "jsonc", "json5":
 		return JSON, nil
+	case "dotenv":
+		return Env, nil
+	case "terraform", "tf":
+		return HCL, nil
+	case "ssh", "ssh_config", "sshd_config":
+		return SSHConfig, nil
 	}
 	return Auto, fmt.Errorf("unknown format %q", s)
 }
 
 // ForPath guesses a file's format from its name, or returns Auto.
 func ForPath(name string) Format {
+	base := strings.ToLower(filepath.Base(name))
 	switch strings.ToLower(filepath.Ext(name)) {
-	case ".json", ".jsonl", ".ndjson", ".geojson", ".jsonld":
+	case ".json", ".jsonl", ".ndjson", ".geojson", ".jsonld", ".jsonc", ".json5":
 		return JSON
 	case ".yaml", ".yml":
 		return YAML
 	case ".toml":
 		return TOML
-	case ".ini", ".cfg", ".conf", ".cnf", ".properties", ".desktop":
+	case ".ini", ".cfg", ".conf", ".cnf", ".desktop":
 		return INI
+	case ".env", ".envrc":
+		return Env
+	case ".properties":
+		return Properties
 	case ".csv":
 		return CSV
 	case ".tsv", ".tab":
 		return TSV
-	case ".xml", ".xsd", ".xsl", ".xslt", ".svg", ".rss", ".atom", ".plist", ".xhtml":
+	case ".xml", ".xsd", ".xsl", ".xslt", ".svg", ".rss", ".atom", ".xhtml":
 		return XML
+	case ".hcl", ".tf", ".tfvars", ".nomad":
+		return HCL
+	case ".plist":
+		return Plist
+	case ".netrc":
+		return Netrc
+	case ".pgpass":
+		return Pgpass
+	}
+	switch {
+	case strings.HasPrefix(base, ".env."): // .env.local, .env.production
+		return Env
+	case base == "_netrc":
+		return Netrc
+	case base == "pgpass.conf":
+		return Pgpass
+	case base == "ssh_config", base == "sshd_config",
+		base == "config" && filepath.Base(filepath.Dir(name)) == ".ssh":
+		return SSHConfig
 	}
 	return Auto
 }
@@ -161,6 +201,20 @@ func Decode(data []byte, f Format, o Options) (any, error) {
 		return decodeCSV(data, '\t', o.CSVHeader)
 	case XML:
 		return decodeXML(data)
+	case Env:
+		return decodeEnv(data, false)
+	case Properties:
+		return decodeProperties(data)
+	case HCL:
+		return decodeHCL(data)
+	case Plist:
+		return decodePlist(data)
+	case Netrc:
+		return decodeNetrc(data)
+	case SSHConfig:
+		return decodeSSHConfig(data)
+	case Pgpass:
+		return decodePgpass(data)
 	case Auto:
 		return decodeAuto(data, o)
 	}
@@ -168,15 +222,25 @@ func Decode(data []byte, f Format, o Options) (any, error) {
 }
 
 // decodeAuto works out the format by trying each in turn, most particular
-// first: XML (if it starts with "<"), JSON, TOML, YAML (if it gives more
-// than a lone value, as nearly any text is a YAML string), INI, CSV or
-// TSV (if every row has as many fields, and more than one), and at last
-// YAML after all.
+// first: a binary plist (by its magic number); XML, or a plist, if it
+// starts with "<"; JSON (or JSON5); shell-style KEY=value lines; TOML;
+// YAML, if it gives more than a lone value, as nearly any text is a YAML
+// string; HCL; INI; CSV or TSV, if every row has as many fields, and more
+// than one; and at last YAML after all.
 func decodeAuto(data []byte, o Options) (any, error) {
+	if bytes.HasPrefix(data, []byte("bplist")) {
+		return decodePlist(data)
+	}
 	if t := bytes.TrimLeft(data, " \t\r\n"); len(t) > 0 && t[0] == '<' {
+		if head := t[:min(len(t), 1024)]; bytes.Contains(head, []byte("<plist")) {
+			return decodePlist(data)
+		}
 		return decodeXML(data)
 	}
-	if v, err := decodeJSON(data); err == nil {
+	if v, err := parseJSON(data); err == nil {
+		return v, nil
+	}
+	if v, err := decodeEnv(data, true); err == nil {
 		return v, nil
 	}
 	if v, err := decodeTOML(data); err == nil && len(v.(*Object).Keys) > 0 {
@@ -188,6 +252,9 @@ func decodeAuto(data []byte, o Options) (any, error) {
 		case *Object, []any:
 			return y, nil
 		}
+	}
+	if v, err := decodeHCL(data); err == nil && len(v.(*Object).Keys) > 0 {
+		return v, nil
 	}
 	if iniLike(data) {
 		if v, err := decodeINI(data); err == nil {

@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "addkeystoagent": {
+      "type": "boolean"
+    },
+    "serveraliveinterval": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "host": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "$patterns": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "user": {
+                "type": "string"
+              },
+              "identityfile": {
+                "type": "string"
+              },
+              "identitiesonly": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "$patterns",
+              "user",
+              "identityfile",
+              "identitiesonly"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "$patterns": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "hostname": {
+                "type": "string"
+              },
+              "user": {
+                "type": "string"
+              },
+              "port": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 10000
+              }
+            },
+            "required": [
+              "$patterns",
+              "hostname",
+              "user",
+              "port"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "$patterns": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "proxyjump": {
+                "type": "string"
+              },
+              "identityfile": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "$patterns",
+              "proxyjump",
+              "identityfile"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "match": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "$criteria": {
+            "type": "string"
+          },
+          "forwardagent": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "$criteria",
+          "forwardagent"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "addkeystoagent",
+    "serveraliveinterval",
+    "host",
+    "match"
+  ],
+  "additionalProperties": false
+}

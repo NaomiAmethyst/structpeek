@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "Blob": {
+      "type": "string"
+    },
+    "CFBundleIdentifier": {
+      "type": "string"
+    },
+    "Created": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "Enabled": {
+      "type": "boolean"
+    },
+    "Ratio": {
+      "type": "number"
+    },
+    "Servers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "Host": {
+            "type": "string"
+          },
+          "Port": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "Host",
+          "Port"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "Version": {
+      "type": "integer"
+    }
+  },
+  "required": [
+    "Blob",
+    "CFBundleIdentifier",
+    "Created",
+    "Enabled",
+    "Ratio",
+    "Servers",
+    "Version"
+  ],
+  "additionalProperties": false
+}

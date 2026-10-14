@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "CFBundleIdentifier": {
+      "type": "string"
+    },
+    "CFBundleShortVersionString": {
+      "type": "string"
+    },
+    "CFBundleURLTypes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "CFBundleURLName": {
+            "type": "string"
+          },
+          "CFBundleURLSchemes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "CFBundleURLName",
+          "CFBundleURLSchemes"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "CFBundleVersion": {
+      "type": "integer"
+    },
+    "LSMinimumSystemVersion": {
+      "type": "string"
+    },
+    "NSHighResolutionCapable": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "CFBundleIdentifier",
+    "CFBundleShortVersionString",
+    "CFBundleURLTypes",
+    "CFBundleVersion",
+    "LSMinimumSystemVersion",
+    "NSHighResolutionCapable"
+  ],
+  "additionalProperties": false
+}

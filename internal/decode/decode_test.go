@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"howett.net/plist"
 )
 
 // render writes a tree as JSON with object keys in their kept order, so
@@ -68,8 +70,174 @@ func TestJSON(t *testing.T) {
 		t.Errorf("wrong hint: %v", err)
 	}
 
-	for _, bad := range []string{``, `{"a":`, `{} }`, `[1,]`} {
+	for _, bad := range []string{``, `{"a":`, `{} }`, `[1,,]`, `{"a" 1}`, `/* open`, `[.]`, `{1: 2}`} {
 		if _, err := Decode([]byte(bad), JSON, Options{}); err == nil {
+			t.Errorf("Decode(%q) succeeded", bad)
+		}
+	}
+}
+
+func TestJSON5(t *testing.T) {
+	check(t, JSON, Options{}, `{
+  // tsconfig.json style
+  "compilerOptions": {"strict": true, "paths": {"@/*": ["src/*"],},},
+  /* block */ "files": [],
+}`, `{"compilerOptions":{"strict":true,"paths":{"@/*":["src/*"]}},"files":[]}`)
+	check(t, JSON, Options{}, `{unquoted: 'single "q"', $id: 0x1F, _n: -.5, p: +3, t: 5., e: 1E3,
+		inf: -Infinity, nan: NaN, s: 'a\
+b\x41\u00e9\uD83D\uDE00\q', z: 007}`,
+		`{"unquoted":"single \"q\"","$id":31,"_n":-0.5,"p":3,"t":5.0,"e":1E3,`+
+			`"inf":-Inf,"nan":NaN,"s":"abAé😀q","z":7}`)
+}
+
+func TestEnv(t *testing.T) {
+	check(t, Env, Options{}, `# credentials
+AWS_ACCESS_KEY_ID="EXAMPLEKEYID"
+export AWS_SECRET_ACCESS_KEY='lit$eral \n'
+PORT=8080 # the port
+DEBUG=false
+EMPTY=
+URL=https://example.com/#frag
+MULTI="line one
+line \"two\" \$HOME"
+SPACED = ok
+export ALSO="x" # comment
+use nix
+`, `{"AWS_ACCESS_KEY_ID":"EXAMPLEKEYID","AWS_SECRET_ACCESS_KEY":"lit$eral \\n","PORT":8080,`+
+		`"DEBUG":false,"EMPTY":"","URL":"https://example.com/#frag","MULTI":"line one\nline \"two\" $HOME",`+
+		`"SPACED":"ok","ALSO":"x"}`)
+	for _, bad := range []string{"", "# only a comment\n", "A=\"unclosed\n", "A=\"x\" y\n"} {
+		if _, err := Decode([]byte(bad), Env, Options{}); err == nil {
+			t.Errorf("Decode(%q) succeeded", bad)
+		}
+	}
+}
+
+func TestProperties(t *testing.T) {
+	check(t, Properties, Options{}, "# comment\n! also\nserver.port=8080\nspring.datasource.url : jdbc:x\n"+
+		"greeting Hello \\\n    world\nescaped\\ key=caf\\u00e9\\tok\nempty\nflag = true\nserver.port=9090\n",
+		`{"server.port":9090,"spring.datasource.url":"jdbc:x","greeting":"Hello world",`+
+			`"escaped key":"café\tok","empty":"","flag":true}`)
+}
+
+func TestHCL(t *testing.T) {
+	check(t, HCL, Options{}, `
+# Terraform
+region = "eu-west-2"
+count  = 3
+ratio  = 1.5
+tags   = { Name = "web", "team-x" = true }
+ports  = [80, 443]
+
+resource "aws_instance" "web" {
+  ami           = var.ami
+  instance_type = "t3.micro"
+  name          = "${local.prefix}-web"
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_eip" "ip" {
+  instance = aws_instance.web.id
+}
+
+locals {
+  doc = <<EOT
+hello
+EOT
+}
+`, `{"region":"eu-west-2","count":3,"ratio":1.5,"tags":{"Name":"web","team-x":true},"ports":[80,443],`+
+		`"resource":[{"$labels":["aws_instance","web"],"ami":"var.ami","instance_type":"t3.micro",`+
+		`"name":"${local.prefix}-web","lifecycle":[{"create_before_destroy":true}]},`+
+		`{"$labels":["aws_eip","ip"],"instance":"aws_instance.web.id"}],"locals":[{"doc":"hello\n"}]}`)
+	if _, err := Decode([]byte("resource {"), HCL, Options{}); err == nil {
+		t.Error("broken HCL decoded")
+	}
+}
+
+func TestPlist(t *testing.T) {
+	check(t, Plist, Options{}, `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Name</key><string>x</string>
+	<key>Count</key><integer>-3</integer>
+	<key>Ratio</key><real>2</real>
+	<key>On</key><true/>
+	<key>When</key><date>2026-01-02T03:04:05Z</date>
+	<key>Data</key><data>AQID</data>
+	<key>List</key><array><string>a</string><dict/></array>
+</dict>
+</plist>`, `{"Count":-3,"Data":"AQID","List":["a",{}],"Name":"x","On":true,"Ratio":2.0,"When":"2026-01-02T03:04:05Z"}`)
+	bin, err := plist.Marshal(map[string]any{"Port": 443, "Hosts": []string{"a"}, "Blob": []byte{1, 2, 3}}, plist.BinaryFormat)
+	if err != nil {
+		t.Fatal(err)
+	}
+	check(t, Plist, Options{}, string(bin), `{"Blob":"AQID","Hosts":["a"],"Port":443}`)
+	check(t, Auto, Options{}, string(bin), `{"Blob":"AQID","Hosts":["a"],"Port":443}`)
+	check(t, Plist, Options{}, "{ Name = x; List = (a, b); }", `{"List":["a","b"],"Name":"x"}`)
+	if _, err := Decode([]byte("<plist><dict><key>x</key></plist>"), Plist, Options{}); err == nil {
+		t.Error("broken plist decoded")
+	}
+}
+
+func TestNetrc(t *testing.T) {
+	check(t, Netrc, Options{}, `# comment
+machine api.example.com login bot password "s3cret pass"
+machine
+  ftp.example.com
+  login anonymous
+  account 42
+macdef init
+cd /pub
+binary
+
+default login guest password guest
+`, `[{"machine":"api.example.com","login":"bot","password":"s3cret pass"},`+
+		`{"machine":"ftp.example.com","login":"anonymous","account":"42"},`+
+		`{"macdef":"init","commands":"cd /pub\nbinary"},{"default":true,"login":"guest","password":"guest"}]`)
+	for _, bad := range []string{"", "login x", "machine", "machine x login"} {
+		if _, err := Decode([]byte(bad), Netrc, Options{}); err == nil {
+			t.Errorf("Decode(%q) succeeded", bad)
+		}
+	}
+}
+
+func TestSSHConfig(t *testing.T) {
+	check(t, SSHConfig, Options{}, `# global
+Include ~/.ssh/config.d/*
+ServerAliveInterval 60
+
+Host github.com gist.github.com
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/id_ed25519
+    IdentityFile ~/.ssh/id_rsa
+    IdentitiesOnly yes
+
+Host *
+  ForwardAgent=no
+  LocalForward 8080 localhost:80
+
+Match host *.internal exec "test -f /tmp/x"
+  ProxyJump "bastion"
+`, `{"include":"~/.ssh/config.d/*","serveraliveinterval":60,`+
+		`"host":[{"$patterns":["github.com","gist.github.com"],"hostname":"github.com","user":"git",`+
+		`"identityfile":["~/.ssh/id_ed25519","~/.ssh/id_rsa"],"identitiesonly":true},`+
+		`{"$patterns":["*"],"forwardagent":false,"localforward":"8080 localhost:80"}],`+
+		`"match":[{"$criteria":"host *.internal exec \"test -f /tmp/x\"","proxyjump":"bastion"}]}`)
+	if _, err := Decode([]byte("Host\n"), SSHConfig, Options{}); err == nil {
+		t.Error("keyword without a value decoded")
+	}
+}
+
+func TestPgpass(t *testing.T) {
+	check(t, Pgpass, Options{}, "# comment\ndb.example.com:5432:app:alice:pa\\:ss:word\n*:*:*:bob:x\n",
+		`[{"hostname":"db.example.com","port":5432,"database":"app","username":"alice","password":"pa:ss:word"},`+
+			`{"hostname":"*","port":"*","database":"*","username":"bob","password":"x"}]`)
+	for _, bad := range []string{"", "a:b:c\n"} {
+		if _, err := Decode([]byte(bad), Pgpass, Options{}); err == nil {
 			t.Errorf("Decode(%q) succeeded", bad)
 		}
 	}
@@ -212,12 +380,20 @@ func TestAuto(t *testing.T) {
 	check(t, Auto, Options{}, "a\t1\nb\t2\n", `[["a",1],["b",2]]`)
 	check(t, Auto, Options{}, "just some text\n", `"just some text"`)
 	check(t, Auto, Options{}, "- a\n- b\n", `["a","b"]`)
+	check(t, Auto, Options{}, "export A=1\nB='x y'\n", `{"A":1,"B":"x y"}`)
+	check(t, Auto, Options{}, "{\n  // c\n  a: 1,\n}\n", `{"a":1}`)
+	check(t, Auto, Options{}, "resource \"x\" \"y\" {\n  n = 1\n}\n", `{"resource":[{"$labels":["x","y"],"n":1}]}`)
+	check(t, Auto, Options{}, "<?xml version=\"1.0\"?>\n<plist version=\"1.0\"><dict><key>a</key><integer>1</integer></dict></plist>", `{"a":1}`)
 }
 
 func TestForPath(t *testing.T) {
 	for name, want := range map[string]Format{
 		"a.json": JSON, "a.JSONL": JSON, "b.yml": YAML, "c.toml": TOML,
-		"d.conf": INI, "e.csv": CSV, "f.tsv": TSV, "i.svg": XML, "j.XML": XML, "g": Auto, "h.txt": Auto,
+		"d.conf": INI, "e.csv": CSV, "f.tsv": TSV, "i.svg": XML, "j.XML": XML,
+		".env": Env, ".env.local": Env, "prod.env": Env, ".envrc": Env, ".env.json": JSON,
+		"x.properties": Properties, "main.tf": HCL, "terraform.tfvars": HCL, "Info.plist": Plist,
+		".netrc": Netrc, "_netrc": Netrc, "/home/u/.ssh/config": SSHConfig, "/etc/ssh/sshd_config": SSHConfig,
+		"config": Auto, ".pgpass": Pgpass, "tsconfig.json": JSON, "a.jsonc": JSON, "b.json5": JSON, "g": Auto, "h.txt": Auto,
 	} {
 		if got := ForPath(name); got != want {
 			t.Errorf("ForPath(%q) = %q, want %q", name, got, want)

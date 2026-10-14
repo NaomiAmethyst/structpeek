@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Naomi Persephone Amethyst <naomi@amethyst.name>
 
-// Command structpeek reads a data file (JSON, YAML, TOML, INI, CSV or XML) and
-// writes a JSON Schema describing its structure, without any of the values
-// that could be sensitive, so you (or an AI agent) can see what's in a
-// file without seeing what's in it.
+// Command structpeek reads a data or config file (JSON, YAML, TOML, INI,
+// .env, CSV, XML, HCL, plist and more) and writes a JSON Schema describing
+// its structure, without its values, so you (or an AI agent) can see
+// what's in a file without seeing what's in it.
 package main
 
 import (
@@ -31,7 +31,8 @@ values is written: only their structure and what kinds of value they are.
 With no file, or "-", reads standard input. Several files are taken as
 examples of one kind of document, and the schema fits them all.
 
-Formats: json (and JSON Lines), yaml, toml, ini, csv, tsv, xml. Each
+Formats: json (and JSON Lines, JSONC, JSON5), yaml, toml, ini, env,
+properties, csv, tsv, xml, hcl, plist, netrc, ssh-config, pgpass. Each
 file's format comes from its name, or else from what it looks like.
 
 Options:
@@ -55,7 +56,7 @@ func run(args []string, stdin io.Reader, stdout io.Writer) error {
 		fmt.Fprint(os.Stderr, usage)
 		fs.PrintDefaults()
 	}
-	formatName := fs.StringP("format", "f", "", "read input as `format`, whatever the file name says")
+	formatName := fs.StringP("format", "f", "", "read input as `format` (see above), whatever the file name says")
 	header := fs.String("csv-header", "auto", "whether CSV/TSV files have a header row: auto, yes or no")
 	output := fs.StringP("output", "o", "", "write the schema to `file` instead of standard output")
 	compact := fs.BoolP("compact", "c", false, "write the schema on one line")

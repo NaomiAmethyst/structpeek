@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "server.port": {
+      "type": "integer"
+    },
+    "spring.application.name": {
+      "type": "string"
+    },
+    "spring.datasource.url": {
+      "type": "string"
+    },
+    "spring.datasource.username": {
+      "type": "string"
+    },
+    "spring.datasource.password": {
+      "$ref": "#/$defs/highEntropyString"
+    },
+    "management.endpoints.web.exposure.include": {
+      "type": "string"
+    },
+    "logging.level.root": {
+      "type": "string"
+    },
+    "feature.flags": {
+      "type": "string"
+    },
+    "app.greeting": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "server.port",
+    "spring.application.name",
+    "spring.datasource.url",
+    "spring.datasource.username",
+    "spring.datasource.password",
+    "management.endpoints.web.exposure.include",
+    "logging.level.root",
+    "feature.flags",
+    "app.greeting"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "highEntropyString": {
+      "description": "A string that looks randomly generated, such as a key, token, hash or opaque ID. The values are withheld.",
+      "type": "string"
+    }
+  }
+}

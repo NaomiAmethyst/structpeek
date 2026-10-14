@@ -16,7 +16,7 @@ import (
 )
 
 // Validate fails t unless schema compiles as JSON Schema 2020-12, formats
-// and all, and each of docs is valid against it.
+// and all, and each of docs that JSON can hold is valid against it.
 func Validate(t *testing.T, schema []byte, docs ...any) {
 	t.Helper()
 	doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(schema))
@@ -36,7 +36,10 @@ func Validate(t *testing.T, schema []byte, docs ...any) {
 	for _, d := range docs {
 		b, err := json.Marshal(decode.Plain(d))
 		if err != nil {
-			t.Fatal(err)
+			// NaN or Infinity, as YAML, TOML and JSON5 have: JSON can't
+			// hold them, so JSON Schema can't validate them.
+			t.Logf("can't check data against its schema: %v", err)
+			continue
 		}
 		inst, err := jsonschema.UnmarshalJSON(bytes.NewReader(b))
 		if err != nil {

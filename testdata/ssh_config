@@ -1,0 +1,21 @@
+# OpenSSH client settings
+AddKeysToAgent yes
+ServerAliveInterval 60
+
+Host github.com
+    User git
+    IdentityFile ~/.ssh/id_ed25519
+    IdentitiesOnly yes
+
+Host bastion
+    HostName bastion.example.com
+    User admin
+    Port 2222
+
+Host *.internal
+    ProxyJump bastion
+    IdentityFile ~/.ssh/internal_ed25519
+    IdentityFile ~/.ssh/internal_rsa
+
+Match host *.internal exec "test -S ~/.ssh/agent.sock"
+    ForwardAgent yes

@@ -6,8 +6,9 @@
 
 See what's in a data file without seeing what's in it.
 
-`structpeek` reads JSON, YAML, TOML, INI, CSV or XML and writes a
-[JSON Schema](https://json-schema.org/) describing its structure: the
+`structpeek` reads JSON, YAML, TOML, INI, `.env`, CSV, XML, HCL, plists
+and more, and writes a [JSON Schema](https://json-schema.org/) describing
+its structure: the
 fields, their types and formats, which are optional, and what kinds of
 record there are.
 
@@ -63,7 +64,7 @@ Install it one of these ways:
 - **Use the Docker image** (amd64, arm64, armv7, riscv64, ppc64le, s390x):
   `ghcr.io/naomiamethyst/structpeek`, tagged `:latest` and by version, or
   `:edge` for the main branch.
-- **Build from source** with Go 1.24 or later:
+- **Build from source** with Go 1.25 or later:
   `go install github.com/NaomiAmethyst/structpeek/cmd/structpeek@latest`,
   or `make && sudo make install` from a checkout.
 
@@ -88,7 +89,7 @@ examples of one kind of document, and the schema fits them all.
 
 | Option | |
 |---|---|
-| `-f`, `--format` *format* | read input as `json`, `yaml`, `toml`, `ini`, `csv`, `tsv` or `xml` |
+| `-f`, `--format` *format* | read input as `json`, `yaml`, `toml`, `ini`, `env`, `properties`, `csv`, `tsv`, `xml`, `hcl`, `plist`, `netrc`, `ssh-config` or `pgpass` |
 | `--csv-header` *auto\|yes\|no* | whether CSV/TSV files have a header row |
 | `-o`, `--output` *file* | write the schema to a file |
 | `-c`, `--compact` | write the schema on one line |
@@ -187,19 +188,37 @@ key.
 
 ## Formats
 
-The format comes from the file name (`.json`, `.jsonl`, `.ndjson`, `.yaml`,
-`.yml`, `.toml`, `.ini`, `.cfg`, `.conf`, `.cnf`, `.properties`, `.csv`,
-`.tsv`, `.xml`, `.svg`, `.rss`, `.atom`, `.plist`, …), or `--format`.
-Anything else, including standard input, is sniffed: XML if it starts with
-`<`, else the first of JSON, TOML, YAML (if it's more than a lone value),
+The format comes from the file name, or `--format`:
+
+| Format | Files |
+|---|---|
+| `json` | `.json`, `.jsonl`, `.ndjson`, `.jsonc`, `.json5`, `.geojson` |
+| `yaml` | `.yaml`, `.yml` |
+| `toml` | `.toml` |
+| `ini` | `.ini`, `.cfg`, `.conf`, `.cnf`, `.desktop` |
+| `env` | `.env`, `.env.*`, `*.env`, `.envrc` |
+| `properties` | `.properties` |
+| `csv`, `tsv` | `.csv`; `.tsv`, `.tab` |
+| `xml` | `.xml`, `.svg`, `.rss`, `.atom`, `.xsd`, `.xsl`, `.xhtml` |
+| `hcl` | `.tf`, `.tfvars`, `.hcl`, `.nomad` |
+| `plist` | `.plist` |
+| `netrc` | `.netrc`, `_netrc` |
+| `ssh-config` | `~/.ssh/config`, `ssh_config`, `sshd_config` |
+| `pgpass` | `.pgpass`, `pgpass.conf` |
+
+Anything else, including standard input, is sniffed: a binary plist by its
+first bytes; XML (or a plist) if it starts with `<`; else the first of
+JSON, `KEY=value` lines, TOML, YAML (if it's more than a lone value), HCL,
 INI, and CSV or TSV (if every row has as many fields) that reads it.
 
 Each is read as JSON would see it:
 
-- **JSON**: a stream of several values (JSON Lines) becomes an array. Raw
-  control characters in strings, which JSON forbids but broken files have,
-  are accepted. If the JSON comes after other text, such as a log saved
-  with it, the error says where it starts.
+- **JSON**: a stream of several values (JSON Lines) becomes an array.
+  JSONC (comments and trailing commas, as in `tsconfig.json`) and JSON5
+  (unquoted keys, single quotes, hex, `Infinity` and so on) are read too,
+  and so are raw control characters in strings, which JSON forbids but
+  broken files have. If the JSON comes after other text, such as a log
+  saved with it, the error says where it starts.
 - **YAML**: anchors, aliases and `<<` merges are followed; dates and other
   scalars that JSON lacks become strings; several documents become an array.
 - **TOML**: dates and times become strings.
@@ -207,6 +226,16 @@ Each is read as JSON would see it:
   first section go at the top level. Values become booleans (`true`, `yes`,
   `on`, …), numbers or strings; a key with no value is `true`; a key given
   more than once, or written `key[]`, is an array.
+- **`.env`**: an object of variables, from `KEY=value` lines, with or
+  without `export`. Single-quoted values are as written; double-quoted
+  ones take backslash escapes; either may span lines. Unquoted values
+  become booleans, numbers or strings, up to a `#` comment. `$VAR` isn't
+  expanded, and other lines (the shell commands in an `.envrc`) are
+  skipped.
+- **Java properties**: an object of keys, as `java.util.Properties` reads
+  them (`=`, `:` or a space between key and value, `\` continuing lines,
+  `\uXXXX` escapes). Dotted keys stay as they are; values become booleans,
+  numbers or strings.
 - **CSV** and **TSV**: with a header row, an array of objects keyed by
   column; without one, an array of arrays. Empty cells are null, and cells
   become booleans, numbers or strings. Whether there's a header is guessed;
@@ -230,6 +259,23 @@ Each is read as JSON would see it:
     {"foo": {"$inner": [{"a": {"$inner": 1}}, {"b": {"$inner": 2}}]}}
   ]}}]
   ```
+- **HCL** (Terraform, Nomad, Packer): an object of attributes and blocks.
+  Blocks of a type are an array, each an object of its body with its
+  labels under `$labels`, so `resource "aws_instance" "web" { ami = "x" }`
+  reads as `{"resource": [{"$labels": ["aws_instance", "web"], "ami":
+  "x"}]}`. Expressions that need variables or functions, like
+  `var.region`, are kept as written, as strings.
+- **Property lists**, XML, binary or old-style text: dictionaries become
+  objects (with their keys sorted), dates strings, and data base64 strings.
+- **`.netrc`**: an array of entries: `{"machine", "login", "password",
+  "account"}`, `{"default": true, …}`, or `{"macdef", "commands"}`.
+- **SSH config**: an object of the settings before the first `Host`, with
+  each `Host` block an object in `host` (its patterns under `$patterns`)
+  and each `Match` block one in `match` (its criteria under `$criteria`).
+  Keywords are in lower case, as `ssh -G` writes them; one given more than
+  once, like `IdentityFile`, is an array; `yes` and `no` become booleans.
+- **`.pgpass`**: an array of `{"hostname", "port", "database", "username",
+  "password"}`, one per line.
 
 ## Limitations
 

@@ -1,0 +1,14 @@
+{
+  // TypeScript settings, with comments and trailing commas (JSONC)
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "strict": true,
+    "paths": {
+      "@/*": ["./src/*"],
+    },
+    /* emitted files */
+    "outDir": "dist",
+  },
+  "include": ["src"],
+}

@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "retries": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10
+    },
+    "backoff": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "maxSize": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000000
+    },
+    "limits": {
+      "type": "object",
+      "properties": {
+        "cpu": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10
+        },
+        "memory": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "cpu",
+        "memory"
+      ],
+      "additionalProperties": false
+    },
+    "token": {
+      "$ref": "#/$defs/highEntropyString"
+    },
+    "servers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string"
+          },
+          "port": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "tls": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "host",
+          "port"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "name",
+    "retries",
+    "backoff",
+    "maxSize",
+    "limits",
+    "token",
+    "servers"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "highEntropyString": {
+      "description": "A string that looks randomly generated, such as a key, token, hash or opaque ID. The values are withheld.",
+      "type": "string"
+    }
+  }
+}

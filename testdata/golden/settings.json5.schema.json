@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "retries": {
+      "type": "integer"
+    },
+    "backoff": {
+      "type": "number"
+    },
+    "maxSize": {
+      "type": "integer"
+    },
+    "limits": {
+      "type": "object",
+      "properties": {
+        "cpu": {
+          "type": "integer"
+        },
+        "memory": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "cpu",
+        "memory"
+      ],
+      "additionalProperties": false
+    },
+    "token": {
+      "$ref": "#/$defs/highEntropyString"
+    },
+    "servers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string"
+          },
+          "port": {
+            "type": "integer"
+          },
+          "tls": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "host",
+          "port"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "name",
+    "retries",
+    "backoff",
+    "maxSize",
+    "limits",
+    "token",
+    "servers"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "highEntropyString": {
+      "description": "A string that looks randomly generated, such as a key, token, hash or opaque ID. The values are withheld.",
+      "type": "string"
+    }
+  }
+}

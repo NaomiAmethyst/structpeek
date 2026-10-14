@@ -1,0 +1,13 @@
+// JSON5
+{
+  name: 'structpeek demo',
+  retries: 3,
+  backoff: .5,
+  maxSize: 0x100000,
+  limits: { cpu: +2, memory: Infinity, },
+  token: 'aeeb975729fae923d5a4fd12aabfe228f219e9cb',
+  servers: [
+    { host: 'a.example.com', port: 443, },
+    { host: 'b.example.com', port: 8443, tls: false },
+  ],
+}

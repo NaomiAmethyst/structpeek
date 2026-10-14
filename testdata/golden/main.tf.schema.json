@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "terraform": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "required_version": {
+            "type": "string"
+          },
+          "required_providers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "aws": {
+                  "type": "object",
+                  "properties": {
+                    "source": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "source",
+                    "version"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "aws"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "required_version",
+          "required_providers"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "variable": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "$labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "type": {
+            "type": "string"
+          },
+          "default": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "$labels",
+          "type",
+          "default"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "provider": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "$labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "region": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "$labels",
+          "region"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "resource": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "$labels": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "ami": {
+                "$ref": "#/$defs/highEntropyString"
+              },
+              "instance_type": {
+                "type": "string"
+              },
+              "count": {
+                "type": "integer"
+              },
+              "tags": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "type": "string"
+                  },
+                  "Team": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "Name",
+                  "Team"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "$labels",
+              "ami",
+              "instance_type",
+              "count",
+              "tags"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "$labels": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "bucket": {
+                "type": "string"
+              },
+              "versioning": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "enabled"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "$labels",
+              "bucket",
+              "versioning"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "output": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "$labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "value": {
+            "type": "string"
+          },
+          "sensitive": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "$labels",
+          "value",
+          "sensitive"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "terraform",
+    "variable",
+    "provider",
+    "resource",
+    "output"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "highEntropyString": {
+      "description": "A string that looks randomly generated, such as a key, token, hash or opaque ID. The values are withheld.",
+      "type": "string"
+    }
+  }
+}

@@ -21,9 +21,15 @@ var update = flag.Bool("update", false, "rewrite the golden schemas in testdata/
 // --enums --ranges, checks the schema is valid and fits the file, and
 // compares it with the one in testdata/golden.
 func TestGolden(t *testing.T) {
-	files, _ := filepath.Glob("../../testdata/*.*")
-	if len(files) == 0 {
-		t.Fatal("no test data")
+	entries, err := os.ReadDir("../../testdata")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var files []string
+	for _, e := range entries {
+		if !e.IsDir() {
+			files = append(files, filepath.Join("../../testdata", e.Name()))
+		}
 	}
 	for _, file := range files {
 		for _, mode := range []struct {

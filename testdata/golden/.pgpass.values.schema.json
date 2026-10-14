@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "hostname": {
+        "type": "string"
+      },
+      "port": {
+        "type": [
+          "integer",
+          "string"
+        ],
+        "minimum": 0,
+        "maximum": 10000
+      },
+      "database": {
+        "type": "string"
+      },
+      "username": {
+        "type": "string"
+      },
+      "password": {
+        "$ref": "#/$defs/highEntropyString"
+      }
+    },
+    "required": [
+      "hostname",
+      "port",
+      "database",
+      "username",
+      "password"
+    ],
+    "additionalProperties": false
+  },
+  "$defs": {
+    "highEntropyString": {
+      "description": "A string that looks randomly generated, such as a key, token, hash or opaque ID. The values are withheld.",
+      "type": "string"
+    }
+  }
+}
