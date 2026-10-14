@@ -6,33 +6,41 @@
 
 See what's in a data file without seeing what's in it.
 
-`structpeek` reads JSON, JSON Lines, YAML, TOML, INI, CSV, TSV or XML and
-writes a [JSON Schema](https://json-schema.org/) (2020-12) for its structure: the
-keys, types, formats, optional fields and kinds of record, but none of the
-values. Use it to get to know a file, or give it to
-an AI agent instead of the file itself, so it can understand the data
-without reading anyone's passwords.
+`structpeek` reads JSON, YAML, TOML, INI, CSV or XML and writes a
+[JSON Schema](https://json-schema.org/) describing its structure: the
+fields, their types and formats, which are optional, and what kinds of
+record there are.
+
+**Values are left out by default; field names stay visible.** (Two
+options show a little more; see [What it writes](#what-it-writes).)
+
+## What it's for
+
+- **Checking a credentials or config file's layout** without printing the
+  secrets in it.
+- **Getting to know an unfamiliar dataset**: what fields records have,
+  which are optional, which hold dates, IDs or categories.
+- **Giving an AI agent the structure instead of the raw data**, so it can
+  write code against a file without reading anyone's passwords.
+
+## Example
+
+Given a credentials file holding a URL, a user name, an API token and an
+expiry date:
 
 ```console
-$ head -2 orders.jsonl
-{"id": "4b6f1c1e-…", "status": "paid", "total": 41.5, "token": "f3a9c27e5b8d…", "tags": ["gift"]}
-{"id": "9d0e2a7b-…", "status": "paid", "total": 12, "token": "0b7e4d9a2c6f…", "tags": []}
-$ structpeek orders.jsonl
+$ structpeek credentials.json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "type": "array",
-  "items": {
-    "type": "object",
-    "properties": {
-      "id": { "type": "string", "format": "uuid" },
-      "status": { "type": "string" },
-      "total": { "type": "number" },
-      "token": { "$ref": "#/$defs/highEntropyString" },
-      "tags": { "type": "array", "items": { "type": "string" } }
-    },
-    "required": ["id", "status", "total", "token", "tags"],
-    "additionalProperties": false
+  "type": "object",
+  "properties": {
+    "url": { "type": "string", "format": "uri" },
+    "user": { "type": "string" },
+    "token": { "$ref": "#/$defs/highEntropyString" },
+    "expires": { "type": "string", "format": "date" }
   },
+  "required": ["url", "user", "token", "expires"],
+  "additionalProperties": false,
   "$defs": {
     "highEntropyString": {
       "description": "A string that looks randomly generated, such as a key, token, hash or opaque ID. The values are withheld.",
@@ -42,8 +50,63 @@ $ structpeek orders.jsonl
 }
 ```
 
-(Output squashed a little here.) The schema is always valid JSON Schema, and
-the data it came from always fits it.
+(Squashed a little here.) You can see the token is there, and that it
+looks like a real secret, without seeing it.
+
+## Quick start
+
+Install it one of these ways:
+
+- **Download a binary** for Linux, macOS, Windows or FreeBSD from the
+  [releases page](https://github.com/NaomiAmethyst/structpeek/releases/latest),
+  unpack it, and put `structpeek` on your `PATH`.
+- **Use the Docker image** (amd64, arm64, armv7, riscv64, ppc64le, s390x):
+  `ghcr.io/naomiamethyst/structpeek`, tagged `:latest` and by version, or
+  `:edge` for the main branch.
+- **Build from source** with Go 1.24 or later:
+  `go install github.com/NaomiAmethyst/structpeek/cmd/structpeek@latest`,
+  or `make && sudo make install` from a checkout.
+
+Then:
+
+```sh
+structpeek config.yaml                 # one file; the format comes from its name
+structpeek records/*.json              # several files of one kind: a schema for them all
+kubectl get pods -o json | structpeek  # standard input; the format is worked out
+docker run --rm -i ghcr.io/naomiamethyst/structpeek < data.csv
+docker run --rm -v "$PWD:/data:ro" ghcr.io/naomiamethyst/structpeek settings.toml
+```
+
+## Usage
+
+```
+structpeek [options] [file...]
+```
+
+With no file, or `-`, it reads standard input. Several files are taken as
+examples of one kind of document, and the schema fits them all.
+
+| Option | |
+|---|---|
+| `-f`, `--format` *format* | read input as `json`, `yaml`, `toml`, `ini`, `csv`, `tsv` or `xml` |
+| `--csv-header` *auto\|yes\|no* | whether CSV/TSV files have a header row |
+| `-o`, `--output` *file* | write the schema to a file |
+| `-c`, `--compact` | write the schema on one line |
+| `--enums` | list repeated values that look safe in enums, and tag kinds of object with them |
+| `--ranges` | give numbers a range, rounded out to powers of ten |
+| `--max-enum` *n* | with `--enums`, list at most *n* values in an enum (default 32) |
+| `--cardinality` *fraction* | strings with fewer distinct values than this fraction of observations are low-cardinality (default 0.05) |
+| `--similarity` *0–1* | how alike (by Jaccard index of their keys) kinds of object must be to merge (default 0.5) |
+| `--max-properties` *n* | take objects with more distinct keys than this for maps (default 200) |
+
+### For AI agents
+
+Before reading a data file of unknown size or sensitivity, run
+`structpeek FILE` and work from the schema. `$defs/lowCardinalityString`
+means a field holds a few repeated values (like a status or a category);
+`$defs/highEntropyString` means keys, tokens, hashes or opaque IDs.
+Optional fields are the ones missing from `required`, and `anyOf` means
+several kinds of record are mixed together.
 
 ## How it reads data
 
@@ -88,9 +151,9 @@ it shows their scale without giving any of them away.
 
 **Arrays** of the same length whose positions hold different things are
 **tuples** (`prefixItems`). Otherwise their elements are pooled: strings
-widen into one string schema, numbers into one range, objects into kinds as
-above. Arrays that are always the same length (seen at least three times)
-get `minItems` and `maxItems`.
+widen into one string schema, numbers into one number schema, objects into
+kinds as above. Arrays that are always the same length (seen at least
+three times) get `minItems` and `maxItems`.
 
 ## What it writes
 
@@ -165,37 +228,6 @@ Each is read as JSON would see it:
   ]}}]
   ```
 
-## Usage
-
-```
-structpeek [options] [file...]
-```
-
-With no file, or `-`, it reads standard input. Several files are taken as
-examples of one kind of document, and the schema fits them all:
-`structpeek configs/*.yaml`.
-
-| Option | |
-|---|---|
-| `-f`, `--format` *format* | read input as `json`, `yaml`, `toml`, `ini`, `csv`, `tsv` or `xml` |
-| `--csv-header` *auto\|yes\|no* | whether CSV/TSV files have a header row |
-| `-o`, `--output` *file* | write the schema to a file |
-| `-c`, `--compact` | write the schema on one line |
-| `--cardinality` *fraction* | strings with fewer distinct values than this fraction of observations are low-cardinality (default 0.05) |
-| `--enums` | list repeated values that look safe in enums, and tag kinds of object with them |
-| `--ranges` | give numbers a range, rounded out to powers of ten |
-| `--max-enum` *n* | with `--enums`, list at most *n* values in an enum (default 32) |
-| `--similarity` *0–1* | how alike (by Jaccard index of their keys) kinds of object must be to merge (default 0.5) |
-| `--max-properties` *n* | take objects with more distinct keys than this for maps (default 200) |
-
-### For AI agents
-
-Before reading a data file of unknown size or sensitivity, run
-`structpeek FILE` and work from the schema. `$defs/lowCardinalityString`
-means a field holds a few repeated values (like a status or a category); `$defs/highEntropyString` means keys, tokens, hashes or
-opaque IDs. Optional fields are the ones missing from `required`, and
-`anyOf` means several kinds of record are mixed together.
-
 ## Limitations
 
 - Keys are written as they are, unless an object looks like a map; a small
@@ -212,31 +244,10 @@ opaque IDs. Optional fields are the ones missing from `required`, and
 - The whole file is read into memory; structpeek gets through about 8 MB a
   second.
 
-## Install
-
-**Binaries** for Linux, macOS, Windows and FreeBSD are on the
-[releases page](https://github.com/NaomiAmethyst/structpeek/releases/latest),
-with checksums. Unpack one and put `structpeek` on your `PATH`.
-
-**Docker** images for amd64, arm64, armv7, riscv64, ppc64le and s390x are
-on the GitHub Container Registry: `:latest` and version tags for releases,
-`:edge` for the main branch.
-
-```sh
-docker run --rm -i ghcr.io/naomiamethyst/structpeek < data.json
-docker run --rm -v "$PWD:/data:ro" ghcr.io/naomiamethyst/structpeek config.yaml
-```
-
-**From source**, with Go 1.24 or later:
-
-```sh
-go install github.com/NaomiAmethyst/structpeek/cmd/structpeek@latest
-```
-
-or, from a checkout, `make && sudo make install` (or `make install
-PREFIX=~/.local`).
-
 ## Development
+
+To build, `make`; to install, `sudo make install` (or `make install
+PREFIX=~/.local`).
 
 `make check` runs the tests, `go vet` and a `gofmt` check; `make fuzz`
 fuzzes the decoders and the inference for a minute each. Schemas for the
