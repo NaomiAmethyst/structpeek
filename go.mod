@@ -1,6 +1,6 @@
 module github.com/NaomiAmethyst/structpeek
 
-go 1.24.0
+go 1.26.0
 
 require (
 	github.com/BurntSushi/toml v1.6.0
@@ -9,4 +9,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-require golang.org/x/text v0.14.0
+require golang.org/x/text v0.43.0
