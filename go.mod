@@ -1,6 +1,6 @@
 module github.com/NaomiAmethyst/structpeek
 
-go 1.25.0
+go 1.25.5
 
 require (
 	github.com/BurntSushi/toml v1.6.0
@@ -10,6 +10,7 @@ require (
 )
 
 require (
+	github.com/calico32/kdl-go v0.16.0
 	github.com/hashicorp/hcl/v2 v2.25.0
 	github.com/zclconf/go-cty v1.19.0
 	golang.org/x/text v0.31.0

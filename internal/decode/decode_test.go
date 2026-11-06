@@ -4,6 +4,7 @@
 package decode
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -243,6 +244,172 @@ func TestPgpass(t *testing.T) {
 	}
 }
 
+func TestKDL(t *testing.T) {
+	check(t, KDL, Options{}, `// A comment
+vexyl 1
+meta {
+  name "Sweden"
+  law "one"
+  law "two"
+}
+node 1 2.5 #true #null key="v" key="last" n=(u8)3 {
+  /-skipped
+  child
+}
+/-gone
+big 99999999999999999999
+$args $args=1 $children=2
+`, `[{"vexyl":{"$args":[1]}},{"meta":{"$children":[{"name":{"$args":["Sweden"]}},{"law":{"$args":["one"]}},{"law":{"$args":["two"]}}]}},`+
+		`{"node":{"$args":[1,2.5,true,null],"key":"last","n":3,"$children":[{"child":{}}]}},`+
+		`{"big":{"$args":[99999999999999999999]}},{"$args":{"$$args":1,"$$children":2}}]`)
+	check(t, KDL, Options{}, "old true null\n", `[{"old":{"$args":[true,null]}}]`) // version 1
+	check(t, KDL, Options{}, "// nothing\n", `[]`)
+	if _, err := Decode([]byte("node {"), KDL, Options{}); err == nil {
+		t.Error("broken KDL decoded")
+	}
+}
+
+// TestErrorsDontLeak checks that broken files' errors don't quote them, as
+// an error goes straight to whoever's running this.
+func TestErrorsDontLeak(t *testing.T) {
+	const secret = "hunter2SECRET"
+	for _, c := range []struct {
+		format Format
+		src    string
+	}{
+		{JSON, `{"a": ` + secret + `}`},
+		{YAML, "a: [" + secret},
+		{YAML, "a: " + secret + ": b: c"},
+		{TOML, "password = " + secret},
+		{TOML, `password = "` + secret + `" ` + secret},
+		{INI, "[" + secret},
+		{Env, `A="x" ` + secret},
+		{HCL, `password = "x" ` + secret},
+		{HCL, secret + " {"},
+		{KDL, `password "` + secret + `" {`},
+		{KDL, secret + "= {"},
+		{KDL, "a " + secret + "= {"},
+		{XML, "<a>&" + secret + ";</a>"},
+		{XML, "<a " + secret + "></a>"},
+		{Plist, "<plist><dict><key>" + secret + "</key></plist>"},
+		{Plist, "{ a = " + secret},
+		{Netrc, secret + " x"},
+		{Netrc, "machine a " + secret},
+		{SSHConfig, secret},
+		{Pgpass, "a:b:" + secret},
+		{CSV, "a,b\n\"" + secret + "\"x,1\n"},
+	} {
+		_, err := Decode([]byte(c.src), c.format, Options{})
+		if err != nil && strings.Contains(err.Error(), "hunter") {
+			t.Errorf("%s: %q: %v", c.format, c.src, err)
+		}
+	}
+	// It still says where.
+	_, err := Decode([]byte("a = 1\nb = oops\n"), TOML, Options{})
+	if err == nil || !strings.Contains(err.Error(), "line 2") {
+		t.Errorf("no line number: %v", err)
+	}
+}
+
+// TestDeepNesting checks that input nested deeply enough to overflow a
+// parser's stack, which would kill the process, is an error instead.
+func TestDeepNesting(t *testing.T) {
+	const n = 3_000_000
+	rep := strings.Repeat
+	for _, c := range []struct {
+		format Format
+		src    string
+	}{
+		{JSON, rep("[", n)},
+		{YAML, rep("[", n)},
+		{TOML, "a=" + rep("[", n)},
+		{TOML, "a=" + rep("{b=", n)},
+		{XML, rep("<a>", n)},
+		{Plist, "<plist>" + rep("<array>", n)},
+		{Plist, rep("(", n)},
+		{Plist, rep("{a=", n)},
+		{KDL, rep("a{", n)},
+		{HCL, "a = " + rep("[", n)},
+		{HCL, rep("a {\n", n)},
+		{HCL, "a = " + rep("(", n)},
+		{HCL, "a = " + rep("{b=", n)},
+		{HCL, "a = \"" + rep("${\"", n)},
+		{HCL, "a = " + rep("!", n) + "b\n"},
+		{HCL, "a = " + rep("-", n) + "b\n"},
+		{HCL, "a = " + rep("b?c:", n) + "d\n"},
+		{HCL, "a = 1" + rep("+1", n) + "\n"},
+		{HCL, "a = b" + rep("[c]", n) + "\n"},
+		{HCL, "a = \"" + rep("%{if b}\n", n) + "\"\n"},
+	} {
+		if _, err := Decode([]byte(c.src), c.format, Options{}); err == nil {
+			t.Errorf("%s: %.20q... decoded", c.format, c.src)
+		}
+	}
+}
+
+func TestCheckNestingAllowsRealFiles(t *testing.T) {
+	big := "a = [" + strings.Repeat("{x = -1, y = !z},\n", 100_000) + "]\n" +
+		strings.Repeat("b = -1 + 2\nc { d = 1 }\n", 100_000)
+	if err := checkNesting("HCL", []byte(big), "[{(", "]})", true); err != nil {
+		t.Errorf("wide file rejected: %v", err)
+	}
+}
+
+// bplistDAG builds a binary plist of n arrays, each holding the next one
+// twice over: small to store, but 2^n values once expanded.
+func bplistDAG(n int) []byte {
+	buf := []byte("bplist00")
+	offsets := make([]int, 0, n+1)
+	for i := range n {
+		offsets = append(offsets, len(buf))
+		next := byte(i + 1)
+		buf = append(buf, 0xA2, next, next)
+	}
+	offsets = append(offsets, len(buf))
+	buf = append(buf, 0x51, 'x') // a one-byte string
+	table := len(buf)
+	for _, o := range offsets {
+		buf = binary.BigEndian.AppendUint16(buf, uint16(o))
+	}
+	buf = append(buf, 0, 0, 0, 0, 0, 0, 2, 1) // unused, offset size, ref size
+	buf = binary.BigEndian.AppendUint64(buf, uint64(len(offsets)))
+	buf = binary.BigEndian.AppendUint64(buf, 0)
+	return binary.BigEndian.AppendUint64(buf, uint64(table))
+}
+
+func TestPlistLimits(t *testing.T) {
+	check(t, Plist, Options{}, string(bplistDAG(2)), `[["x","x"],["x","x"]]`)
+	if _, err := Decode(bplistDAG(40), Plist, Options{}); err == nil || !strings.Contains(err.Error(), "too many values") {
+		t.Errorf("plist that expands to 2^40 values: %v", err)
+	}
+	// An array that holds itself.
+	cycle := []byte("bplist00\xA1\x00\x00\x08\x00\x00\x00\x00\x00\x00\x02\x01")
+	cycle = binary.BigEndian.AppendUint64(cycle, 1)
+	cycle = binary.BigEndian.AppendUint64(cycle, 0)
+	cycle = binary.BigEndian.AppendUint64(cycle, 10)
+	if _, err := Decode(cycle, Plist, Options{}); err == nil {
+		t.Error("plist holding itself decoded")
+	}
+	// A chain of arrays too deep to parse.
+	chain := []byte("bplist00")
+	var table []byte
+	for i := range 100_000 {
+		table = binary.BigEndian.AppendUint32(table, uint32(len(chain)))
+		chain = append(chain, 0xA1)
+		chain = binary.BigEndian.AppendUint32(chain, uint32(i+1))
+	}
+	table = binary.BigEndian.AppendUint32(table, uint32(len(chain)))
+	chain = append(chain, 0x08)
+	offset := len(chain)
+	chain = append(append(chain, table...), 0, 0, 0, 0, 0, 0, 4, 4)
+	chain = binary.BigEndian.AppendUint64(chain, 100_001)
+	chain = binary.BigEndian.AppendUint64(chain, 0)
+	chain = binary.BigEndian.AppendUint64(chain, uint64(offset))
+	if _, err := Decode(chain, Plist, Options{}); err == nil || !strings.Contains(err.Error(), "too deeply") {
+		t.Errorf("chain of 100000 arrays: %v", err)
+	}
+}
+
 func TestYAML(t *testing.T) {
 	check(t, YAML, Options{}, `
 base: &base
@@ -378,7 +545,16 @@ func TestAuto(t *testing.T) {
 	check(t, Auto, Options{}, "[s]\nhost = example.com\nflag = on\n", `{"s":{"host":"example.com","flag":true}}`)
 	check(t, Auto, Options{}, "name,n\nx,1\n", `[{"name":"x","n":1}]`)
 	check(t, Auto, Options{}, "a\t1\nb\t2\n", `[["a",1],["b",2]]`)
-	check(t, Auto, Options{}, "just some text\n", `"just some text"`)
+	check(t, Auto, Options{}, "title \"x\"\nnode 1 key=\"v\" {\n  child #true\n}\n",
+		`[{"title":{"$args":["x"]}},{"node":{"$args":[1],"key":"v","$children":[{"child":{"$args":[true]}}]}}]`)
+	// Plain text is no format, though KDL and YAML would both take it.
+	for _, text := range []string{"just some text\n", "Hello, world\n", "two lines\nof prose\n", "word"} {
+		if _, err := Decode([]byte(text), Auto, Options{}); err == nil || !strings.Contains(err.Error(), "try --format") {
+			t.Errorf("Decode(%q) = %v, want it not to guess", text, err)
+		}
+	}
+	// A format that's asked for is still taken at its word.
+	check(t, YAML, Options{}, "just some text\n", `"just some text"`)
 	check(t, Auto, Options{}, "- a\n- b\n", `["a","b"]`)
 	check(t, Auto, Options{}, "export A=1\nB='x y'\n", `{"A":1,"B":"x y"}`)
 	check(t, Auto, Options{}, "{\n  // c\n  a: 1,\n}\n", `{"a":1}`)
@@ -393,7 +569,7 @@ func TestForPath(t *testing.T) {
 		".env": Env, ".env.local": Env, "prod.env": Env, ".envrc": Env, ".env.json": JSON,
 		"x.properties": Properties, "main.tf": HCL, "terraform.tfvars": HCL, "Info.plist": Plist,
 		".netrc": Netrc, "_netrc": Netrc, "/home/u/.ssh/config": SSHConfig, "/etc/ssh/sshd_config": SSHConfig,
-		"config": Auto, ".pgpass": Pgpass, "tsconfig.json": JSON, "a.jsonc": JSON, "b.json5": JSON, "g": Auto, "h.txt": Auto,
+		"config": Auto, ".pgpass": Pgpass, "flag.kdl": KDL, "tsconfig.json": JSON, "a.jsonc": JSON, "b.json5": JSON, "g": Auto, "h.txt": Auto,
 	} {
 		if got := ForPath(name); got != want {
 			t.Errorf("ForPath(%q) = %q, want %q", name, got, want)

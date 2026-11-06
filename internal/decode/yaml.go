@@ -31,7 +31,7 @@ func decodeYAML(data []byte) (any, error) {
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("YAML: %w", err)
+			return nil, fmt.Errorf("YAML: %w", redact(err, data))
 		}
 		v, err := y.value(&n, 0)
 		if err != nil {

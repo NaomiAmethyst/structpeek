@@ -184,6 +184,23 @@ func TestOneOfKeys(t *testing.T) {
 	}
 }
 
+// A list of many kinds of XML element or KDL node isn't a map, though each
+// object shares no keys with most of the others.
+func TestManyKindsOfElement(t *testing.T) {
+	s := run(t, records(100, func(i int) string {
+		return fmt.Sprintf(`{"element%c": {"n": 1}}`, 'a'+rune(i%20))
+	}))
+	item := at(t, s, "[]")
+	if item.Properties == nil || len(item.Properties.Keys()) != 20 || *item.MaxProperties != 1 {
+		t.Errorf("not one of 20 elements: %s", js(item))
+	}
+	// Keys that are data are still withheld.
+	s = run(t, records(30, func(i int) string { return fmt.Sprintf(`{"%d": {"n": 1}}`, i) }))
+	if item := at(t, s, "[]"); item.Properties != nil {
+		t.Errorf("numeric keys shown: %s", js(item))
+	}
+}
+
 func TestStrings(t *testing.T) {
 	s := run(t, records(100, func(i int) string {
 		return fmt.Sprintf(`{"status": %q, "password": %q, "token": %q, "name": "user %d", `+

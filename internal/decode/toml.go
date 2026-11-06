@@ -15,10 +15,13 @@ import (
 
 // decodeTOML reads a TOML document. Dates and times become strings.
 func decodeTOML(data []byte) (any, error) {
+	if err := checkNesting("TOML", data, "[{", "]}", false); err != nil {
+		return nil, err
+	}
 	var m map[string]any
 	md, err := toml.Decode(string(data), &m)
 	if err != nil {
-		return nil, fmt.Errorf("TOML: %w", err)
+		return nil, fmt.Errorf("TOML: %w", redact(err, data))
 	}
 	// The decoder hands back plain maps; its metadata remembers the order
 	// keys came in.

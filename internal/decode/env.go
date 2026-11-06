@@ -114,7 +114,7 @@ func (s *envScanner) value() (any, error) {
 			s.pos++
 			rest := strings.TrimSpace(s.restOfLine())
 			if rest != "" && rest[0] != '#' {
-				return nil, fmt.Errorf("unexpected %q after closing quote", rest)
+				return nil, errors.New("unexpected text after closing quote")
 			}
 			s.skipLine()
 			return b.String(), nil

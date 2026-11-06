@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "service": {
+        "type": "object",
+        "properties": {
+          "$args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10
+          },
+          "$children": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "listen": {
+                  "type": "object",
+                  "properties": {
+                    "$args": {
+                      "type": "array",
+                      "prefixItems": [
+                        {
+                          "type": "string",
+                          "format": "ipv4"
+                        },
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 10000
+                        }
+                      ],
+                      "items": false,
+                      "minItems": 2
+                    },
+                    "tls": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "$args",
+                    "tls"
+                  ],
+                  "additionalProperties": false
+                },
+                "database": {
+                  "type": "object",
+                  "properties": {
+                    "$children": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "url": {
+                            "type": "object",
+                            "properties": {
+                              "$args": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "format": "uri"
+                                }
+                              }
+                            },
+                            "required": [
+                              "$args"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "password": {
+                            "type": "object",
+                            "properties": {
+                              "$args": {
+                                "type": "array",
+                                "items": {
+                                  "$ref": "#/$defs/highEntropyString"
+                                }
+                              }
+                            },
+                            "required": [
+                              "$args"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "pool": {
+                            "type": "object",
+                            "properties": {
+                              "min": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 10
+                              },
+                              "max": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 100
+                              }
+                            },
+                            "required": [
+                              "min",
+                              "max"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "minProperties": 1,
+                        "maxProperties": 1,
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "$children"
+                  ],
+                  "additionalProperties": false
+                },
+                "route": {
+                  "type": "object",
+                  "properties": {
+                    "$args": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "methods": {
+                      "type": "string"
+                    },
+                    "timeout": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 100
+                    }
+                  },
+                  "required": [
+                    "$args",
+                    "methods"
+                  ],
+                  "additionalProperties": false
+                },
+                "env": {
+                  "type": "object",
+                  "properties": {
+                    "$args": {
+                      "type": "array",
+                      "prefixItems": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "$ref": "#/$defs/highEntropyString"
+                        }
+                      ],
+                      "items": false,
+                      "minItems": 2
+                    }
+                  },
+                  "required": [
+                    "$args"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "minProperties": 1,
+              "maxProperties": 1,
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "$args",
+          "version",
+          "$children"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "service"
+    ],
+    "additionalProperties": false
+  },
+  "$defs": {
+    "highEntropyString": {
+      "description": "A string that looks randomly generated, such as a key, token, hash or opaque ID. The values are withheld.",
+      "type": "string"
+    }
+  }
+}

@@ -72,21 +72,36 @@ func (in *inferrer) object(objs []*decode.Object, p place) *Schema {
 // namesSecret marks a place as secret if any of its objects names a
 // secret under a name-like key, as name/value lists do: {"name":
 // "DB_PASSWORD", "value": "..."}, or <param name="api_key" value="..."/>
-// in XML. Values are pooled across the objects, so one such name makes all
-// of them secret.
+// in XML; or among its KDL arguments or HCL labels, as in KDL's
+// env "DB_PASSWORD" "..." or HCL's variable "db_password" { ... }. Values
+// are pooled across the objects, so one such name makes all of them secret.
 func namesSecret(objs []*decode.Object, p place) place {
 	if p.sensitive {
 		return p
 	}
 	for _, o := range objs {
 		for i, k := range o.Keys {
-			s, ok := o.Values[i].(string)
-			if ok && nameKeys[strings.ToLower(k)] && identRE.MatchString(s) && sensitiveName(s) {
-				return place{sensitive: true}
+			switch v := o.Values[i].(type) {
+			case string:
+				if nameKeys[strings.ToLower(k)] && namesASecret(v) {
+					return place{sensitive: true}
+				}
+			case []any:
+				if k == decode.Args || k == decode.Labels {
+					for _, e := range v {
+						if s, ok := e.(string); ok && namesASecret(s) {
+							return place{sensitive: true}
+						}
+					}
+				}
 			}
 		}
 	}
 	return p
+}
+
+func namesASecret(s string) bool {
+	return identRE.MatchString(s) && sensitiveName(s)
 }
 
 // nameKeys are keys that, in a name/value list, hold the name.
@@ -281,7 +296,9 @@ func (in *inferrer) isMap(objs []*decode.Object) bool {
 	switch {
 	case data*2 >= len(count), len(count) > in.opts.MaxProperties:
 		return true
-	case len(objs) >= 4 && len(count) >= 16 && float64(total) < 0.2*float64(len(count)*len(objs)):
+	// Objects with one key each share few keys by nature: they're lists of
+	// XML elements or KDL nodes, whose names are the structure.
+	case len(objs) >= 4 && len(count) >= 16 && float64(total) < 0.2*float64(len(count)*len(objs)) && !oneKeyEach(objs):
 		return true
 	case len(count) < minRecordMap:
 		return false

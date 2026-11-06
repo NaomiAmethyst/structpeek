@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Naomi Persephone Amethyst <naomi@amethyst.name>
 
 // Command structpeek reads a data or config file (JSON, YAML, TOML, INI,
-// .env, CSV, XML, HCL, plist and more) and writes a JSON Schema describing
+// .env, CSV, XML, HCL, KDL, plist and more) and writes a JSON Schema describing
 // its structure, without its values, so you (or an AI agent) can see
 // what's in a file without seeing what's in it.
 package main
@@ -32,7 +32,7 @@ With no file, or "-", reads standard input. Several files are taken as
 examples of one kind of document, and the schema fits them all.
 
 Formats: json (and JSON Lines, JSONC, JSON5), yaml, toml, ini, env,
-properties, csv, tsv, xml, hcl, plist, netrc, ssh-config, pgpass. Each
+properties, csv, tsv, xml, hcl, kdl, plist, netrc, ssh-config, pgpass. Each
 file's format comes from its name, or else from what it looks like.
 
 Options:

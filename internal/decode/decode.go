@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"path/filepath"
@@ -92,6 +93,7 @@ const (
 	TSV        Format = "tsv"
 	XML        Format = "xml"
 	HCL        Format = "hcl"
+	KDL        Format = "kdl"
 	Plist      Format = "plist"
 	Netrc      Format = "netrc"
 	SSHConfig  Format = "ssh-config"
@@ -99,7 +101,7 @@ const (
 )
 
 // Formats lists the formats a user can ask for by name.
-var Formats = []Format{JSON, YAML, TOML, INI, Env, Properties, CSV, TSV, XML, HCL, Plist, Netrc, SSHConfig, Pgpass}
+var Formats = []Format{JSON, YAML, TOML, INI, Env, Properties, CSV, TSV, XML, HCL, KDL, Plist, Netrc, SSHConfig, Pgpass}
 
 // ParseFormat turns a name, as given on the command line, into a Format.
 func ParseFormat(s string) (Format, error) {
@@ -146,6 +148,8 @@ func ForPath(name string) Format {
 		return XML
 	case ".hcl", ".tf", ".tfvars", ".nomad":
 		return HCL
+	case ".kdl":
+		return KDL
 	case ".plist":
 		return Plist
 	case ".netrc":
@@ -207,6 +211,8 @@ func Decode(data []byte, f Format, o Options) (any, error) {
 		return decodeProperties(data)
 	case HCL:
 		return decodeHCL(data)
+	case KDL:
+		return decodeKDL(data)
 	case Plist:
 		return decodePlist(data)
 	case Netrc:
@@ -225,8 +231,10 @@ func Decode(data []byte, f Format, o Options) (any, error) {
 // first: a binary plist (by its magic number); XML, or a plist, if it
 // starts with "<"; JSON (or JSON5); shell-style KEY=value lines; TOML;
 // YAML, if it gives more than a lone value, as nearly any text is a YAML
-// string; HCL; INI; CSV or TSV, if every row has as many fields, and more
-// than one; and at last YAML after all.
+// string; HCL; KDL, if it has properties or children, as nearly any text
+// is KDL too; INI; and CSV or TSV, if it has several rows, all with as many
+// fields, and more than one. Anything else is an error, rather than one
+// long string that says nothing about the file.
 func decodeAuto(data []byte, o Options) (any, error) {
 	if bytes.HasPrefix(data, []byte("bplist")) {
 		return decodePlist(data)
@@ -256,6 +264,9 @@ func decodeAuto(data []byte, o Options) (any, error) {
 	if v, err := decodeHCL(data); err == nil && len(v.(*Object).Keys) > 0 {
 		return v, nil
 	}
+	if doc, err := parseKDL(data); err == nil && kdlStructured(doc) {
+		return kdlNodes(doc), nil
+	}
 	if iniLike(data) {
 		if v, err := decodeINI(data); err == nil {
 			return v, nil
@@ -264,14 +275,11 @@ func decodeAuto(data []byte, o Options) (any, error) {
 	for _, comma := range []rune{'\t', ','} {
 		r := csv.NewReader(bytes.NewReader(data))
 		r.Comma = comma
-		if rows, err := r.ReadAll(); err == nil && len(rows) > 0 && len(rows[0]) > 1 {
+		if rows, err := r.ReadAll(); err == nil && len(rows) > 1 && len(rows[0]) > 1 {
 			return decodeCSV(data, comma, o.CSVHeader)
 		}
 	}
-	if yerr != nil {
-		return nil, fmt.Errorf("can't tell what format this is (try --format): %w", yerr)
-	}
-	return y, nil
+	return nil, errors.New("can't tell what format this is (try --format)")
 }
 
 // iniLike reports whether every line is blank, a comment, a [section] or a

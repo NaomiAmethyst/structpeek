@@ -36,7 +36,7 @@ func decodeNetrc(data []byte) (any, error) {
 				return nil, err
 			}
 			if !ok {
-				return nil, fmt.Errorf("netrc: %s without a name", tok)
+				return nil, errors.New("netrc: machine or macdef without a name")
 			}
 			o := NewObject()
 			o.Set(tok, name)
@@ -52,14 +52,14 @@ func decodeNetrc(data []byte) (any, error) {
 			entries = append(entries, cur)
 		default:
 			if cur == nil {
-				return nil, fmt.Errorf("netrc: %q outside a machine entry", tok)
+				return nil, errors.New("netrc: a setting outside a machine entry")
 			}
 			val, ok, err := t.next()
 			if err != nil {
 				return nil, err
 			}
 			if !ok {
-				return nil, fmt.Errorf("netrc: %s without a value", tok)
+				return nil, errors.New("netrc: a setting without a value")
 			}
 			cur.Set(tok, val)
 		}
@@ -149,7 +149,7 @@ func decodeSSHConfig(data []byte) (any, error) {
 		}
 		end := strings.IndexAny(text, " \t=")
 		if end < 0 {
-			return nil, fmt.Errorf("ssh config: line %d: %q has no value", line, text)
+			return nil, fmt.Errorf("ssh config: line %d: a keyword without a value", line)
 		}
 		keyword := strings.ToLower(text[:end])
 		args := strings.TrimLeft(text[end:], " \t")

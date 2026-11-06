@@ -1,0 +1,14 @@
+// A service's settings
+service "orders" version=2 {
+  listen "0.0.0.0" 8443 tls=#true
+  database {
+    url "postgres://orders@db.internal:5432/orders"
+    password "Zk3vQ9wL2xT7bN4m"
+    pool min=2 max=20
+  }
+  route "/health" methods="GET"
+  route "/orders" methods="GET,POST" timeout=(s)30
+  env "LOG_LEVEL" "info"
+  env "SESSION_SECRET" "n8Yq2Lf6Rt1Xc9Vb"
+  /-disabled #true
+}

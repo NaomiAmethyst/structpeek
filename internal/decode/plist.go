@@ -19,9 +19,12 @@ import (
 // sorted, as plists don't keep their order), dates RFC 3339 strings, and
 // data base64 strings.
 func decodePlist(data []byte) (any, error) {
+	if err := checkPlist(data); err != nil {
+		return nil, err
+	}
 	var v any
 	if _, err := plist.Unmarshal(data, &v); err != nil {
-		return nil, fmt.Errorf("plist: %w", err)
+		return nil, fmt.Errorf("plist: %w", redact(err, data))
 	}
 	return plistValue(v), nil
 }

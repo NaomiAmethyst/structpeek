@@ -6,8 +6,8 @@
 
 See what's in a data file without seeing what's in it.
 
-`structpeek` reads JSON, YAML, TOML, INI, `.env`, CSV, XML, HCL, plists
-and more, and writes a [JSON Schema](https://json-schema.org/) describing
+`structpeek` reads JSON, YAML, TOML, INI, `.env`, CSV, XML, HCL, KDL,
+plists and more, and writes a [JSON Schema](https://json-schema.org/) describing
 its structure: the
 fields, their types and formats, which are optional, and what kinds of
 record there are.
@@ -64,7 +64,7 @@ Install it one of these ways:
 - **Use the Docker image** (amd64, arm64, armv7, riscv64, ppc64le, s390x):
   `ghcr.io/naomiamethyst/structpeek`, tagged `:latest` and by version, or
   `:edge` for the main branch.
-- **Build from source** with Go 1.25 or later:
+- **Build from source** with Go 1.25.5 or later:
   `go install github.com/NaomiAmethyst/structpeek/cmd/structpeek@latest`,
   or `make && sudo make install` from a checkout.
 
@@ -89,7 +89,7 @@ examples of one kind of document, and the schema fits them all.
 
 | Option | |
 |---|---|
-| `-f`, `--format` *format* | read input as `json`, `yaml`, `toml`, `ini`, `env`, `properties`, `csv`, `tsv`, `xml`, `hcl`, `plist`, `netrc`, `ssh-config` or `pgpass` |
+| `-f`, `--format` *format* | read input as `json`, `yaml`, `toml`, `ini`, `env`, `properties`, `csv`, `tsv`, `xml`, `hcl`, `kdl`, `plist`, `netrc`, `ssh-config` or `pgpass` |
 | `--csv-header` *auto\|yes\|no* | whether CSV/TSV files have a header row |
 | `-o`, `--output` *file* | write the schema to a file |
 | `-c`, `--compact` | write the schema on one line |
@@ -181,10 +181,14 @@ A value is secret if it sits, at any depth, under a key that sounds secret
 (`password`, `token`, `apiKey`, `credentials`, `session`, `pin` and many
 more), in a map with any such key (its values are pooled), or in a
 name/value list where any name sounds secret (`{"name": "DB_PASSWORD",
-"value": …}`, or `<param name="api_key" value="…"/>`). Anything that looks
+"value": …}`, `<param name="api_key" value="…"/>`, KDL's `env "DB_PASSWORD"
+"…"` or HCL's `variable "db_password" { … }`). Anything that looks
 like a credential (private keys, JWTs, tokens with well-known prefixes,
 URLs with passwords in) or a random string is never an enum value, tag or
 key.
+
+Errors don't quote the file either: words from it are blanked out of parser
+messages, leaving the line and column.
 
 ## Formats
 
@@ -201,6 +205,7 @@ The format comes from the file name, or `--format`:
 | `csv`, `tsv` | `.csv`; `.tsv`, `.tab` |
 | `xml` | `.xml`, `.svg`, `.rss`, `.atom`, `.xsd`, `.xsl`, `.xhtml` |
 | `hcl` | `.tf`, `.tfvars`, `.hcl`, `.nomad` |
+| `kdl` | `.kdl` |
 | `plist` | `.plist` |
 | `netrc` | `.netrc`, `_netrc` |
 | `ssh-config` | `~/.ssh/config`, `ssh_config`, `sshd_config` |
@@ -209,7 +214,11 @@ The format comes from the file name, or `--format`:
 Anything else, including standard input, is sniffed: a binary plist by its
 first bytes; XML (or a plist) if it starts with `<`; else the first of
 JSON, `KEY=value` lines, TOML, YAML (if it's more than a lone value), HCL,
-INI, and CSV or TSV (if every row has as many fields) that reads it.
+KDL (if it has properties or children), INI, and CSV or TSV (if it has
+several rows, all with as many fields) that reads it. Plain text, or
+anything else nothing reads, is an error rather than a schema saying
+`string`; with `--format` or a known file name, the format is taken at its
+word.
 
 Each is read as JSON would see it:
 
@@ -265,6 +274,12 @@ Each is read as JSON would see it:
   reads as `{"resource": [{"$labels": ["aws_instance", "web"], "ami":
   "x"}]}`. Expressions that need variables or functions, like
   `var.region`, are kept as written, as strings.
+- **KDL**, version 1 or 2: an array of nodes, each an object of one key,
+  its name, holding its properties, with its arguments in an array under
+  `$args` and its child nodes under `$children`, so
+  `node 1 key="v" { child #true }` reads as `[{"node": {"$args": [1], "key":
+  "v", "$children": [{"child": {"$args": [true]}}]}}]`. Type annotations are
+  dropped.
 - **Property lists**, XML, binary or old-style text: dictionaries become
   objects (with their keys sorted), dates strings, and data base64 strings.
 - **`.netrc`**: an array of entries: `{"machine", "login", "password",

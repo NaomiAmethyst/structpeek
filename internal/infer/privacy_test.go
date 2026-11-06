@@ -61,6 +61,21 @@ func TestTagsFollowEnumRules(t *testing.T) {
 	}
 }
 
+// A secret can be named by position too: KDL's env "DB_PASSWORD" "..." and
+// HCL's variable "db_password" { default = "..." }.
+func TestPositionalNames(t *testing.T) {
+	out := runWith(t, withValues(), records(60, func(i int) string {
+		name := []string{"LOG_LEVEL", "DB_PASSWORD", "REGION"}[i%3]
+		return fmt.Sprintf(`{"env": {"$args": [%q, "hunter2"]}}`, name)
+	}))
+	noneOf(t, out, "hunter2")
+	out = runWith(t, withValues(), records(60, func(i int) string {
+		name := []string{"region", "db_password"}[i%2]
+		return fmt.Sprintf(`{"$labels": [%q], "default": "hunter2"}`, name)
+	}))
+	noneOf(t, out, "hunter2")
+}
+
 // TestDefaultsWriteNoValues checks that by default nothing from the
 // values gets into a schema, however safe it looks.
 func TestDefaultsWriteNoValues(t *testing.T) {

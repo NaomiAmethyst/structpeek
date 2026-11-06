@@ -20,6 +20,7 @@ func FuzzDecode(f *testing.F) {
 		"machine h login l password \"p w\"\nmacdef m\nx\n\ndefault login d\n",
 		"Host a b\n  User u\n  IdentityFile f\n  IdentityFile g\nMatch all\n  Port 22\n",
 		"h:5432:d:u:p\\:w\n*:*:*:*:x\n", "bplist00\xd1\x01\x02",
+		"title \"x\"\nnode 1 k=\"v\" (u8)n=2 {\n  /-a\n  b #true #null\n}\n",
 	} {
 		f.Add([]byte(seed))
 	}

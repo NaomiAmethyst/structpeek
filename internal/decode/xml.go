@@ -57,7 +57,7 @@ func decodeXML(data []byte) (any, error) {
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("XML: %w", err)
+			return nil, fmt.Errorf("XML: %w", redact(err, data))
 		}
 		switch t := tok.(type) {
 		case xml.StartElement:

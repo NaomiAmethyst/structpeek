@@ -21,7 +21,7 @@ func decodeCSV(data []byte, comma rune, header Header) (any, error) {
 	r.LazyQuotes = true
 	rows, err := r.ReadAll()
 	if err != nil {
-		return nil, fmt.Errorf("CSV: %w", err)
+		return nil, fmt.Errorf("CSV: %w", redact(err, data))
 	}
 	out := make([]any, 0, len(rows))
 	if len(rows) == 0 {

@@ -4,7 +4,9 @@
 package decode
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -30,9 +32,16 @@ const Labels = "$labels"
 // their values; others, like var.region or "${local.name}-x", are kept as
 // written, as strings.
 func decodeHCL(data []byte) (any, error) {
+	if err := checkNesting("HCL", data, "[{(", "]})", true); err != nil {
+		return nil, err
+	}
+	// Template directives nest without brackets staying open.
+	if bytes.Count(data, []byte("%{")) > maxDepth {
+		return nil, errors.New("HCL: nested too deeply")
+	}
 	f, diags := hclsyntax.ParseConfig(data, "input.hcl", hcl.InitialPos)
 	if diags.HasErrors() {
-		return nil, fmt.Errorf("HCL: %s", diags.Error())
+		return nil, fmt.Errorf("HCL: %w", redact(diags, data))
 	}
 	return hclBody(f.Body.(*hclsyntax.Body), data), nil
 }
